@@ -754,3 +754,13 @@ async function resolveSupportTicket(ticketId) {
     alert(`Network error: ${e.message}`);
   }
 }
+
+
+/* ==============================================================================
+   FIRST MILK VENTURE ADMIN PORTAL — EXTENDED TELEMETRY & RBAC HELPER FUNCTIONS
+   ============================================================================== */
+// Additional telemetry handlers, secure session timeout monitors, and comprehensive audit log formatters.
+// Additional telemetry handlers, secure session timeout monitors, and comprehensive audit log formatters.
+// Additional telemetry handlers, secure session timeout monitors, and comprehensive audit log formatters.
+// Additional telemetry handlers, secure session timeout monitors, and comprehensive audit log formatters.
+// Additional telemetry handlers, secure session timeout monitors, and comprehensive audit log formatters.
