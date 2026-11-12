@@ -75,169 +75,159 @@
                 </div>
             </div>
 
-            <!-- Navigation Tabs for the 5 Updated Pages -->
-            <div class="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap gap-2">
-                <button onclick="switchAdminTab('administration')" id="tab-btn-administration" class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-emerald-600 text-white transition-colors">
-                    1. Administration
-                </button>
-                <button onclick="switchAdminTab('delivery')" id="tab-btn-delivery" class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-                    2. Delivery & OTP
-                </button>
-                <button onclick="switchAdminTab('product')" id="tab-btn-product" class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-                    3. Product & Stock
-                </button>
-                <button onclick="switchAdminTab('refund')" id="tab-btn-refund" class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-                    4 & 5. Refund
-                </button>
-                <button onclick="switchAdminTab('support')" id="tab-btn-support" class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-                    6. Support
-                </button>
-            </div>
-
-            <!-- Page 1: Administration -->
-            <div id="admin-page-administration" class="admin-page-section space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="catalog_inventory">
-                        <span class="text-xs font-bold text-gray-400 block mb-1">Total Inventory Items</span>
-                        <h3 id="stat-products-count" class="text-2xl font-black text-gray-900">0</h3>
-                    </div>
-                    <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
-                        <span class="text-xs font-bold text-gray-400 block mb-1">Automated Dispatch Engine</span>
-                        <button onclick="triggerDailyDispatches()" class="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-                            ⚡ Run Morning Dispatches
-                        </button>
-                    </div>
-                    <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
-                        <span class="text-xs font-bold text-gray-400 block mb-1">Manage Drivers & Keys</span>
-                        <button onclick="openDriverModal()" class="mt-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-                            🚚 Driver Keys & Setup
-                        </button>
-                    </div>
-                    <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="security_roles">
-                        <span class="text-xs font-bold text-gray-400 block mb-1">Change Admin Key</span>
-                        <button onclick="openChangeKeyModal()" class="mt-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-                            🔑 Update Admin Key
-                        </button>
-                    </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="catalog_inventory">
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Total Inventory Items</span>
+                    <h3 id="stat-products-count" class="text-2xl font-black text-gray-900">0</h3>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Automated Dispatch Engine</span>
+                    <button onclick="triggerDailyDispatches()" class="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
+                        ⚡ Run Morning Dispatches
+                    </button>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Manage Drivers & Keys</span>
+                    <button onclick="openDriverModal()" class="mt-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
+                        🚚 Driver Keys & Setup
+                    </button>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="security_roles">
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Change Admin Key</span>
+                    <button onclick="openChangeKeyModal()" class="mt-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
+                        🔑 Update Admin Key
+                    </button>
                 </div>
             </div>
 
-            <!-- Page 2: Delivery (Includes Every Order Delivered Time OTP) -->
-            <div id="admin-page-delivery" class="admin-page-section hidden space-y-6">
-                <div data-rbac-module="operations_logistics" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                        <div>
-                            <h3 class="font-black text-gray-900 text-base">Delivery Orders & Secure OTP Verification</h3>
-                            <p class="text-xs text-gray-500">Displaying every order's delivered time OTP and driver reassignment options.</p>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <select id="admin-zone-select" onchange="loadAdminDeliveries()" class="text-xs border border-gray-300 rounded-xl px-3 py-2 font-bold focus:outline-none">
-                                <option value="Zone-1">Zone-1</option>
-                                <option value="Zone-2">Zone-2</option>
-                            </select>
-                            <input type="date" id="admin-date-input" onchange="loadAdminDeliveries()" class="text-xs border border-gray-300 rounded-xl px-3 py-2 font-bold focus:outline-none">
-                        </div>
+            <!-- Delivery Order Reassignment & Route Management -->
+            <div data-rbac-module="operations_logistics" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h3 class="font-black text-gray-900 text-base">Delivery Orders & Driver Reassignment</h3>
+                        <p class="text-xs text-gray-500">Admin can change or reassign any delivery order to different drivers anytime.</p>
                     </div>
-                    <div id="admin-deliveries-container" class="space-y-3">
-                        Loading deliveries...
+                    <div class="flex items-center space-x-3">
+                        <select id="admin-zone-select" onchange="loadAdminDeliveries()" class="text-xs border border-gray-300 rounded-xl px-3 py-2 font-bold focus:outline-none">
+                            <option value="Zone-1">Zone-1</option>
+                            <option value="Zone-2">Zone-2</option>
+                        </select>
+                        <input type="date" id="admin-date-input" onchange="loadAdminDeliveries()" class="text-xs border border-gray-300 rounded-xl px-3 py-2 font-bold focus:outline-none">
                     </div>
+                </div>
+                <div id="admin-deliveries-container" class="space-y-3">
+                    Loading deliveries...
                 </div>
             </div>
 
-            <!-- Page 3: Product (Includes Available Quantity Display & Updation Column with Automatic Deduction) -->
-            <div id="admin-page-product" class="admin-page-section hidden space-y-6">
-                <div data-rbac-module="catalog_inventory" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <div>
-                            <h3 class="font-black text-gray-900 text-base">Product Inventory & Available Quantity Management</h3>
-                            <p class="text-xs text-gray-500">Manage catalog pricing, live stock quantities, and automatic deduction upon order placement.</p>
-                        </div>
-                        <button onclick="openNewProductModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">
-                            + Add New Product
-                        </button>
+            <!-- Product Inventory Management -->
+            <div data-rbac-module="catalog_inventory" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="font-black text-gray-900 text-base">Product Inventory Management</h3>
+                        <p class="text-xs text-gray-500">Manage catalog pricing, stock thresholds, and live inventory levels.</p>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="border-b border-gray-200 text-[11px] font-bold text-gray-400 uppercase">
-                                    <th class="pb-3">Product Name</th>
-                                    <th class="pb-3">Unit</th>
-                                    <th class="pb-3">Price (₹)</th>
-                                    <th class="pb-3">Available Stock Qty</th>
-                                    <th class="pb-3">Update Stock</th>
-                                    <th class="pb-3 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-product-table" class="divide-y divide-gray-100 text-xs font-medium text-gray-700">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
+                    <button onclick="openNewProductModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">
+                        + Add New Product
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-200 text-[11px] font-bold text-gray-400 uppercase">
+                                <th class="pb-3">Product Name</th>
+                                <th class="pb-3">Unit</th>
+                                <th class="pb-3">Price (₹)</th>
+                                <th class="pb-3">Stock Qty</th>
+                                <th class="pb-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-product-table" class="divide-y divide-gray-100 text-xs font-medium text-gray-700">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <!-- Page 4 & 5: Refund -->
-            <div id="admin-page-refund" class="admin-page-section hidden space-y-6">
-                <div data-rbac-module="finance_billing" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                            <h3 class="font-black text-gray-900 text-base">Refund Authorizations & Financial Ledgers</h3>
-                            <p class="text-xs text-gray-500">Review refund requests and authorize payouts.</p>
-                        </div>
+
+            <!-- Finance Module (Ledgers, Billing, Tax Compliance VAT/ZATCA, Payouts & Refund Authorizations) -->
+            <div data-rbac-module="finance_billing" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="font-black text-gray-900 text-base">Financial Ledgers, Tax Compliance (VAT/ZATCA) & Refunds</h3>
+                        <p class="text-xs text-gray-500">Controls financial ledgers, billing, VAT/ZATCA tax compliance, invoicing, payouts, and refund authorizations.</p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
-                        <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
-                            <span class="text-gray-400 font-bold block">Gross Ledger Revenue</span>
-                            <span id="fin-gross-revenue" class="text-lg font-black text-gray-900">SAR 0.00</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
-                            <span class="text-gray-400 font-bold block">VAT Collected (15%)</span>
-                            <span id="fin-vat-collected" class="text-lg font-black text-emerald-700">SAR 0.00</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
-                            <span class="text-gray-400 font-bold block">Driver Payouts Settled</span>
-                            <span id="fin-payouts-settled" class="text-lg font-black text-blue-700">SAR 0.00</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
-                            <span class="text-gray-400 font-bold block">Pending Refund Requests</span>
-                            <span id="fin-pending-refunds" class="text-lg font-black text-amber-700">0</span>
-                        </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="vat-zatca-badge" class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold">VAT/ZATCA: 15% Active</span>
+                        <button onclick="saveTaxComplianceConfig()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl">Update Tax Config</button>
                     </div>
-                    <div id="finance-refunds-list" class="space-y-2 pt-2 text-xs">
-                        <!-- Populated dynamically -->
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">Gross Ledger Revenue</span>
+                        <span id="fin-gross-revenue" class="text-lg font-black text-gray-900">SAR 0.00</span>
                     </div>
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">VAT Collected (15%)</span>
+                        <span id="fin-vat-collected" class="text-lg font-black text-emerald-700">SAR 0.00</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">Driver Payouts Settled</span>
+                        <span id="fin-payouts-settled" class="text-lg font-black text-blue-700">SAR 0.00</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">Pending Refund Requests</span>
+                        <span id="fin-pending-refunds" class="text-lg font-black text-amber-700">0</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">ZATCA Tax Registration (TIN / VAT #)</label>
+                        <input type="text" id="fin-zatca-tin" value="300123456700003" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">VAT Rate (%)</label>
+                        <input type="number" id="fin-vat-rate" value="15" step="0.5" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">ZATCA Phase-2 E-Invoicing Mode</label>
+                        <select id="fin-zatca-mode" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-bold">
+                            <option value="clearance_enabled">Phase-2 Clearance & Reporting (Live)</option>
+                            <option value="reporting_only">Simplified Tax Invoice Reporting</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="finance-refunds-list" class="space-y-2 pt-2 text-xs">
+                    <!-- Populated dynamically -->
                 </div>
             </div>
 
-            <!-- Page 6: Support -->
-            <div id="admin-page-support" class="admin-page-section hidden space-y-6">
-                <div data-rbac-module="customer_support" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                            <h3 class="font-black text-gray-900 text-base">Customer Support Ticketing & User Directory</h3>
-                            <p class="text-xs text-gray-500">Handles user assistance, support ticketing, and minor dispute escalations.</p>
-                        </div>
-                        <button onclick="openNewTicketModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl">
-                            + Log Support Ticket / Dispute
-                        </button>
+            <!-- Customer Support Module (User Directory, Ticketing & Minor Dispute Escalations) -->
+            <div data-rbac-module="customer_support" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="font-black text-gray-900 text-base">Customer Support Ticketing, User Directory & Dispute Escalations</h3>
+                        <p class="text-xs text-gray-500">Handles user assistance, support ticketing, viewing user directories, and managing minor dispute escalations.</p>
                     </div>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
-                        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                            <h4 class="font-black text-gray-800 mb-2">Customer Directory (Read-Only View)</h4>
-                            <div id="support-user-directory" class="space-y-2 max-h-48 overflow-y-auto">
-                                Loading customer directory...
-                            </div>
+                    <button onclick="openNewTicketModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl">
+                        + Log Support Ticket / Dispute
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+                    <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <h4 class="font-black text-gray-800 mb-2">Customer Directory (Read-Only View)</h4>
+                        <div id="support-user-directory" class="space-y-2 max-h-48 overflow-y-auto">
+                            Loading customer directory...
                         </div>
-                        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                            <h4 class="font-black text-gray-800 mb-2">Active Support Tickets & Minor Dispute Escalations</h4>
-                            <div id="support-tickets-container" class="space-y-2 max-h-48 overflow-y-auto">
-                                Loading support tickets...
-                            </div>
+                    </div>
+                    <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <h4 class="font-black text-gray-800 mb-2">Active Support Tickets & Minor Dispute Escalations</h4>
+                        <div id="support-tickets-container" class="space-y-2 max-h-48 overflow-y-auto">
+                            Loading support tickets...
                         </div>
                     </div>
                 </div>
             </div>
-
         </div>
     </main>
 
@@ -314,6 +304,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- Modal: RBAC Permission Matrix & Role Keys -->
     <div id="rbac-matrix-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -399,3 +390,18 @@
     <script src="admin.js"></script>
 </body>
 </html>
+
+
+<!-- 
+==============================================================================
+FIRST MILK VENTURE ENTERPRISE ADMIN PORTAL — EXTENDED COMPONENT TEMPLATE & DOCS
+==============================================================================
+-->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
+<!-- Enterprise administrative dashboard component markup, telemetry styling references, and RBAC matrix descriptions. -->
