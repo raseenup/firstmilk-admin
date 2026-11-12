@@ -1,5 +1,87 @@
 const API_BASE_URL = "https://backend.firstmilkventure.com";
 
+const RBAC_ROLES = {
+  super_admin: {
+    label: "Super Admin",
+    description: "Ultimate system authority. Manages global configurations, core security, user roles, system infrastructure, and can override any action.",
+    modules: ["security_roles", "operations_logistics", "catalog_inventory", "finance_billing", "customer_support"],
+    canOverride: true
+  },
+  operations_manager: {
+    label: "Operations Manager",
+    description: "Oversees day-to-day business logistics, service catalogues, inventory, booking/order pipelines, and scheduling.",
+    modules: ["operations_logistics", "catalog_inventory"],
+    canOverride: false
+  },
+  finance: {
+    label: "Finance",
+    description: "Controls financial ledgers, billing, tax compliance (e.g., VAT/ZATCA configurations), invoicing, payouts, and refund authorizations.",
+    modules: ["finance_billing"],
+    canOverride: false
+  },
+  customer_support: {
+    label: "Customer Support",
+    description: "Handles user assistance, support ticketing, viewing user directories, and managing minor dispute escalations.",
+    modules: ["customer_support"],
+    canOverride: false
+  }
+};
+
+const RBAC_PERMISSION_MATRIX = [
+  {
+    module: "Global Config, Core Security & User Roles",
+    super_admin: "Full Control & Override",
+    operations_manager: "No Access",
+    finance: "No Access",
+    customer_support: "No Access"
+  },
+  {
+    module: "Logistics, Dispatch & Driver Scheduling",
+    super_admin: "Full Control & Override",
+    operations_manager: "Full Control (Read/Write)",
+    finance: "No Access",
+    customer_support: "No Access"
+  },
+  {
+    module: "Service Catalogues & Inventory Management",
+    super_admin: "Full Control & Override",
+    operations_manager: "Full Control (Read/Write)",
+    finance: "No Access",
+    customer_support: "No Access"
+  },
+  {
+    module: "Financial Ledgers, Billing & VAT/ZATCA Tax",
+    super_admin: "Full Control & Override",
+    operations_manager: "No Access",
+    finance: "Full Control (Read/Write)",
+    customer_support: "No Access"
+  },
+  {
+    module: "Invoicing, Payouts & Refund Authorizations",
+    super_admin: "Full Control & Override",
+    operations_manager: "No Access",
+    finance: "Approve & Authorize",
+    customer_support: "Escalate Minor Disputes"
+  },
+  {
+    module: "Support Ticketing, User Directory & Disputes",
+    super_admin: "Full Control & Override",
+    operations_manager: "No Access",
+    finance: "No Access",
+    customer_support: "Read Directory / Manage Tickets"
+  }
+];
+
+function getAuthHeaders(extra = {}) {
+  const key = localStorage.getItem("admin_key") || "";
+  const role = localStorage.getItem("admin_role") || "super_admin";
+  return {
+    "x-admin-key": key,
+    "x-admin-role": role,
+    ...extra
+  };
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const today = new Date().toISOString().split('T')[0];
   const dateInput = document.getElementById("admin-date-input");
@@ -10,40 +92,74 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function authenticateAdmin() {
   const key = document.getElementById("staff-secret-key").value.trim();
+  const selectedRoleEl = document.getElementById("staff-role-select");
+  const selectedRole = selectedRoleEl ? selectedRoleEl.value : "super_admin";
   const errorBox = document.getElementById("staff-error");
   errorBox.classList.add("hidden");
 
   if (!key) {
-    errorBox.textContent = "Please enter admin access key.";
+    errorBox.textContent = "Please enter role or admin access key.";
     errorBox.classList.remove("hidden");
     return;
   }
 
-  // Test admin key with backend
-  fetch(`${API_BASE_URL}/admin/drivers`, {
-    headers: { "x-admin-key": key }
-  }).then(res => {
+  // Verify RBAC role & key with backend
+  fetch(`${API_BASE_URL}/admin/rbac/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_key: key, role: selectedRole })
+  }).then(async res => {
     if (res.ok) {
+      const data = await res.json();
       localStorage.setItem("admin_key", key);
+      localStorage.setItem("admin_role", data.role || selectedRole);
       checkAdminAuth();
     } else {
-      errorBox.textContent = "Invalid Admin Key. Please verify and try again.";
+      const err = await res.json().catch(() => ({}));
+      errorBox.textContent = err.detail || "Invalid Access Key for selected RBAC role.";
       errorBox.classList.remove("hidden");
     }
   }).catch(() => {
-    // Fallback verification if offline
-    if (key === "Firstmilk3211234" || key.length >= 6) {
+    // Fallback offline verification matching RBAC role keys
+    const fallbackRoleKeys = {
+      super_admin: ["Firstmilk3211234"],
+      operations_manager: ["OpsMgr2026", "Firstmilk3211234"],
+      finance: ["FinanceZATCA2026", "Firstmilk3211234"],
+      customer_support: ["SupportDesk2026", "Firstmilk3211234"]
+    };
+    const allowed = fallbackRoleKeys[selectedRole] || [];
+    if (allowed.includes(key) || (selectedRole === "super_admin" && key.length >= 6)) {
       localStorage.setItem("admin_key", key);
+      localStorage.setItem("admin_role", selectedRole);
       checkAdminAuth();
     } else {
-      errorBox.textContent = "Invalid Admin Key.";
+      errorBox.textContent = "Invalid Access Key for selected role.";
       errorBox.classList.remove("hidden");
+    }
+  });
+}
+
+function applyRbacPermissions(roleKey) {
+  const roleCfg = RBAC_ROLES[roleKey] || RBAC_ROLES.super_admin;
+  const titleEl = document.getElementById("rbac-active-role-title");
+  const descEl = document.getElementById("rbac-active-role-desc");
+  if (titleEl) titleEl.textContent = roleCfg.label + (roleCfg.canOverride ? " (Global Override Enabled)" : " (Least-Privilege Mode)");
+  if (descEl) descEl.textContent = roleCfg.description;
+
+  document.querySelectorAll("[data-rbac-module]").forEach(el => {
+    const mod = el.getAttribute("data-rbac-module");
+    if (roleCfg.modules.includes(mod)) {
+      el.classList.remove("hidden");
+    } else {
+      el.classList.add("hidden");
     }
   });
 }
 
 function checkAdminAuth() {
   const key = localStorage.getItem("admin_key");
+  const role = localStorage.getItem("admin_role") || "super_admin";
+  const roleCfg = RBAC_ROLES[role] || RBAC_ROLES.super_admin;
   const loginSection = document.getElementById("staff-login-section");
   const dashboard = document.getElementById("staff-dashboard");
   const roleBadge = document.getElementById("staff-role-badge");
@@ -51,9 +167,12 @@ function checkAdminAuth() {
   if (key) {
     loginSection.classList.add("hidden");
     dashboard.classList.remove("hidden");
-    roleBadge.textContent = "Category Admin";
-    loadAdminData();
-    loadAdminDeliveries();
+    roleBadge.textContent = roleCfg.label;
+    applyRbacPermissions(role);
+    if (roleCfg.modules.includes("catalog_inventory")) loadAdminData();
+    if (roleCfg.modules.includes("operations_logistics")) loadAdminDeliveries();
+    if (roleCfg.modules.includes("finance_billing")) loadFinanceModule();
+    if (roleCfg.modules.includes("customer_support")) loadSupportModule();
   } else {
     loginSection.classList.remove("hidden");
     dashboard.classList.add("hidden");
@@ -63,6 +182,7 @@ function checkAdminAuth() {
 
 function handleStaffLogout() {
   localStorage.removeItem("admin_key");
+  localStorage.removeItem("admin_role");
   checkAdminAuth();
 }
 
@@ -99,11 +219,11 @@ async function loadAdminDeliveries() {
 
   try {
     const res = await fetch(`${API_BASE_URL}/driver/deliveries?zone_id=${zoneId}&delivery_date=${dateInput}`, {
-      headers: { "x-driver-key": key }
+      headers: getAuthHeaders({ "x-driver-key": key })
     });
     const deliveries = await res.json();
     const driversRes = await fetch(`${API_BASE_URL}/admin/drivers`, {
-      headers: { "x-admin-key": key }
+      headers: getAuthHeaders()
     }).then(r => r.json()).catch(() => []);
 
     if (!deliveries || !deliveries.length) {
@@ -144,10 +264,7 @@ async function reassignOrder(deliveryId) {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/deliveries/${deliveryId}/assign`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-key": key
-      },
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ driver_key: driverKey })
     });
     const data = await res.json();
@@ -176,7 +293,7 @@ async function loadDriversList() {
   const container = document.getElementById("drivers-list-admin");
   try {
     const res = await fetch(`${API_BASE_URL}/admin/drivers`, {
-      headers: { "x-admin-key": key }
+      headers: getAuthHeaders()
     });
     const drivers = await res.json();
     if (!drivers.length) {
@@ -212,10 +329,7 @@ async function createNewDriver() {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/drivers`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-key": key
-      },
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ driver_key, name, phone, address })
     });
     if (res.ok) {
@@ -240,7 +354,7 @@ async function deleteDriver(driverKey) {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/drivers/${driverKey}`, {
       method: "DELETE",
-      headers: { "x-admin-key": key }
+      headers: getAuthHeaders()
     });
     if (res.ok) {
       loadDriversList();
@@ -315,10 +429,7 @@ async function submitNewProduct() {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/products`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-key": key
-      },
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ name, description, price, unit })
     });
     if (res.ok) {
@@ -340,7 +451,7 @@ async function deleteProduct(productId) {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/products/${productId}`, {
       method: "DELETE",
-      headers: { "x-admin-key": key }
+      headers: getAuthHeaders()
     });
     if (res.ok) {
       loadAdminData();
@@ -360,10 +471,7 @@ async function triggerDailyDispatches() {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/generate-deliveries`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-key": key
-      },
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ target_date: targetDate })
     });
     const data = await res.json();
@@ -375,5 +483,274 @@ async function triggerDailyDispatches() {
     }
   } catch (err) {
     alert(`Network error: ${err.message}`);
+  }
+}
+
+// ==============================================================================
+// RBAC MATRIX, FINANCE (VAT/ZATCA & REFUNDS) & CUSTOMER SUPPORT FUNCTIONS
+// ==============================================================================
+
+function openRbacMatrixModal() {
+  const modal = document.getElementById("rbac-matrix-modal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+
+  const tbody = document.getElementById("rbac-matrix-table-body");
+  if (tbody) {
+    tbody.innerHTML = RBAC_PERMISSION_MATRIX.map(row => `
+      <tr class="hover:bg-gray-50">
+        <td class="p-3 font-bold text-gray-900">${row.module}</td>
+        <td class="p-3 font-semibold text-emerald-700">${row.super_admin}</td>
+        <td class="p-3 text-gray-700">${row.operations_manager}</td>
+        <td class="p-3 text-gray-700">${row.finance}</td>
+        <td class="p-3 text-gray-700">${row.customer_support}</td>
+      </tr>
+    `).join("");
+  }
+
+  const currentRole = localStorage.getItem("admin_role") || "super_admin";
+  const keyBox = document.getElementById("rbac-key-management-box");
+  if (keyBox) {
+    if (currentRole === "super_admin") {
+      keyBox.classList.remove("hidden");
+      loadRbacRoleKeys();
+    } else {
+      keyBox.classList.add("hidden");
+    }
+  }
+}
+
+function closeRbacMatrixModal() {
+  const modal = document.getElementById("rbac-matrix-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function loadRbacRoleKeys() {
+  const listEl = document.getElementById("rbac-role-keys-list");
+  if (!listEl) return;
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/rbac/roles`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    const roles = data.roles || {};
+    listEl.innerHTML = Object.entries(roles).map(([rKey, rInfo]) => `
+      <div class="p-2.5 rounded-xl border border-gray-200 bg-gray-50 flex justify-between items-center">
+        <div>
+          <span class="font-bold text-gray-900 block">${RBAC_ROLES[rKey]?.label || rKey}</span>
+          <code class="text-[11px] font-mono text-emerald-700">${rInfo.access_key}</code>
+        </div>
+        <button onclick="rotateRoleKey('${rKey}')" class="px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[11px] font-bold">Rotate Key</button>
+      </div>
+    `).join("");
+  } catch (e) {
+    listEl.innerHTML = `<p class="text-gray-500">Default RBAC role keys active on server.</p>`;
+  }
+}
+
+async function rotateRoleKey(targetRole) {
+  const newKey = prompt(`Enter new access key for ${RBAC_ROLES[targetRole]?.label || targetRole} (min 6 chars):`);
+  if (!newKey || newKey.trim().length < 6) return;
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/rbac/roles/${targetRole}/key`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ new_access_key: newKey.trim() })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ ${data.message}`);
+      loadRbacRoleKeys();
+    } else {
+      alert(`Error: ${data.detail || "Failed to rotate role key"}`);
+    }
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
+  }
+}
+
+async function loadFinanceModule() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/finance/overview`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const ledger = data.ledger || {};
+    const tax = data.tax_compliance || {};
+
+    if (document.getElementById("fin-gross-revenue")) document.getElementById("fin-gross-revenue").textContent = `SAR ${Number(ledger.gross_revenue || 0).toFixed(2)}`;
+    if (document.getElementById("fin-vat-collected")) document.getElementById("fin-vat-collected").textContent = `SAR ${Number(ledger.vat_collected || 0).toFixed(2)}`;
+    if (document.getElementById("fin-payouts-settled")) document.getElementById("fin-payouts-settled").textContent = `SAR ${Number(ledger.driver_payouts || 0).toFixed(2)}`;
+
+    if (tax.zatca_tin && document.getElementById("fin-zatca-tin")) document.getElementById("fin-zatca-tin").value = tax.zatca_tin;
+    if (tax.vat_rate !== undefined && document.getElementById("fin-vat-rate")) document.getElementById("fin-vat-rate").value = tax.vat_rate;
+    if (tax.zatca_mode && document.getElementById("fin-zatca-mode")) document.getElementById("fin-zatca-mode").value = tax.zatca_mode;
+    if (document.getElementById("vat-zatca-badge")) document.getElementById("vat-zatca-badge").textContent = `VAT/ZATCA: ${tax.vat_rate || 15}% Active`;
+
+    const refunds = data.refund_requests || [];
+    if (document.getElementById("fin-pending-refunds")) {
+      document.getElementById("fin-pending-refunds").textContent = refunds.filter(r => r.status === "pending").length;
+    }
+    const listEl = document.getElementById("finance-refunds-list");
+    if (listEl) {
+      listEl.innerHTML = refunds.length ? refunds.map(r => `
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-3 rounded-xl border border-gray-200 bg-gray-50">
+          <div>
+            <span class="font-bold text-gray-900">Refund #${r.id} — Order ${r.order_id} (SAR ${Number(r.amount).toFixed(2)})</span>
+            <span class="block text-[11px] text-gray-500">Customer: ${r.user_email} | Reason: ${r.reason} | Status: <strong class="uppercase">${r.status}</strong></span>
+          </div>
+          ${r.status === "pending" ? `
+            <div class="flex space-x-2">
+              <button onclick="authorizeRefund('${r.id}', 'approved')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold">Authorize Refund</button>
+              <button onclick="authorizeRefund('${r.id}', 'rejected')" class="px-3 py-1.5 bg-red-600 text-white rounded-lg font-bold">Reject</button>
+            </div>
+          ` : `<span class="px-2.5 py-1 rounded-lg bg-gray-200 text-gray-700 font-bold uppercase text-[10px]">${r.status}</span>`}
+        </div>
+      `).join("") : `<p class="text-gray-400 italic">No pending refund authorizations.</p>`;
+    }
+  } catch (e) {
+    console.error("Finance module load error:", e);
+  }
+}
+
+async function saveTaxComplianceConfig() {
+  const zatca_tin = document.getElementById("fin-zatca-tin").value.trim();
+  const vat_rate = parseFloat(document.getElementById("fin-vat-rate").value);
+  const zatca_mode = document.getElementById("fin-zatca-mode").value;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/finance/tax-config`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ zatca_tin, vat_rate, zatca_mode })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ ${data.message}`);
+      loadFinanceModule();
+    } else {
+      alert(`Error: ${data.detail || "Failed to update tax configuration"}`);
+    }
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
+  }
+}
+
+async function authorizeRefund(refundId, decision) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/finance/refunds/${refundId}`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ status: decision })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ ${data.message}`);
+      loadFinanceModule();
+    } else {
+      alert(`Error: ${data.detail || "Refund authorization failed"}`);
+    }
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
+  }
+}
+
+async function loadSupportModule() {
+  try {
+    const [usersRes, ticketsRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/admin/support/users`, { headers: getAuthHeaders() }),
+      fetch(`${API_BASE_URL}/admin/support/tickets`, { headers: getAuthHeaders() })
+    ]);
+    if (usersRes.ok) {
+      const usersData = await usersRes.json();
+      const users = usersData.users || [];
+      const dirEl = document.getElementById("support-user-directory");
+      if (dirEl) {
+        dirEl.innerHTML = users.length ? users.map(u => `
+          <div class="p-2.5 bg-white rounded-lg border border-gray-200">
+            <span class="font-bold text-gray-900 block">${u.full_name || "Registered Customer"} (${u.email})</span>
+            <span class="text-[11px] text-gray-500">Phone: ${u.phone || "N/A"} | Address: ${u.address || "N/A"}</span>
+          </div>
+        `).join("") : `<p class="text-gray-400 italic">No customer records found.</p>`;
+      }
+    }
+    if (ticketsRes.ok) {
+      const ticketsData = await ticketsRes.json();
+      const tickets = ticketsData.tickets || [];
+      const tEl = document.getElementById("support-tickets-container");
+      if (tEl) {
+        tEl.innerHTML = tickets.length ? tickets.map(t => `
+          <div class="p-2.5 bg-white rounded-lg border border-gray-200 flex justify-between items-start gap-2">
+            <div>
+              <span class="font-bold text-gray-900">#${t.id} [${t.category}] — ${t.customer_email}</span>
+              <p class="text-[11px] text-gray-600 mt-0.5">${t.summary}</p>
+              <span class="text-[10px] font-bold uppercase text-emerald-700">Status: ${t.status}</span>
+            </div>
+            ${t.status !== "resolved" ? `
+              <button onclick="resolveSupportTicket('${t.id}')" class="px-2.5 py-1 bg-slate-900 text-white rounded-lg text-[11px] font-bold">Resolve</button>
+            ` : ""}
+          </div>
+        `).join("") : `<p class="text-gray-400 italic">No open support tickets or dispute escalations.</p>`;
+      }
+    }
+  } catch (e) {
+    console.error("Support module load error:", e);
+  }
+}
+
+function openNewTicketModal() {
+  const m = document.getElementById("support-ticket-modal");
+  if (m) m.classList.remove("hidden");
+}
+
+function closeNewTicketModal() {
+  const m = document.getElementById("support-ticket-modal");
+  if (m) m.classList.add("hidden");
+}
+
+async function submitSupportTicket() {
+  const customer_email = document.getElementById("ticket-customer-email").value.trim();
+  const category = document.getElementById("ticket-category").value;
+  const summary = document.getElementById("ticket-summary").value.trim();
+
+  if (!customer_email || !summary) {
+    alert("Please provide customer email and ticket summary.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/support/tickets`, {
+      method: "POST",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ customer_email, category, summary })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ ${data.message}`);
+      document.getElementById("ticket-customer-email").value = "";
+      document.getElementById("ticket-summary").value = "";
+      closeNewTicketModal();
+      loadSupportModule();
+    } else {
+      alert(`Error: ${data.detail || "Failed to create support ticket"}`);
+    }
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
+  }
+}
+
+async function resolveSupportTicket(ticketId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/support/tickets/${ticketId}`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ status: "resolved" })
+    });
+    if (res.ok) {
+      loadSupportModule();
+    }
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
   }
 }

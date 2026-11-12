@@ -30,12 +30,21 @@
         <!-- Login Card (Shown if not logged in) -->
         <div id="staff-login-section" class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <h2 class="text-xl font-black text-gray-900 mb-2">Category Admin Portal Login</h2>
-            <p class="text-xs text-gray-500 mb-6">Enter your secure administrator access key.</p>
+            <p class="text-xs text-gray-500 mb-6">Select your RBAC role and enter your secure access key.</p>
 
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">Admin Access Key</label>
-                    <input type="password" id="staff-secret-key" value="" placeholder="Enter admin access key..." class="w-full px-3 py-2.5 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Portal Role (RBAC)</label>
+                    <select id="staff-role-select" class="w-full px-3 py-2.5 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold bg-white">
+                        <option value="super_admin">Super Admin (Ultimate System Authority)</option>
+                        <option value="operations_manager">Operations Manager (Logistics, Catalog & Scheduling)</option>
+                        <option value="finance">Finance (Ledgers, VAT/ZATCA, Payouts & Refunds)</option>
+                        <option value="customer_support">Customer Support (Ticketing, User Directory & Disputes)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Role / Admin Access Key</label>
+                    <input type="password" id="staff-secret-key" value="" placeholder="Enter role or admin access key..." class="w-full px-3 py-2.5 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono">
                 </div>
                 <div id="staff-error" class="hidden text-xs text-red-600 font-semibold bg-red-50 p-3 rounded-xl border border-red-200"></div>
                 <button onclick="authenticateAdmin()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs shadow transition-colors">
@@ -50,24 +59,40 @@
         <!-- Dashboard Workspace (Hidden until logged in) -->
         <div id="staff-dashboard" class="hidden space-y-6">
             
+            <!-- RBAC Role Summary & Active Permissions Banner -->
+            <div id="rbac-role-banner" class="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-black uppercase">RBAC Active</span>
+                        <h3 id="rbac-active-role-title" class="text-sm font-black text-gray-900">Super Admin</h3>
+                    </div>
+                    <p id="rbac-active-role-desc" class="text-xs text-gray-500 mt-0.5">Ultimate system authority. Manages global configurations, core security, user roles, system infrastructure, and can override any action.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="btn-open-rbac-matrix" onclick="openRbacMatrixModal()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors">
+                        🛡️ RBAC Matrix & Role Keys
+                    </button>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="catalog_inventory">
                     <span class="text-xs font-bold text-gray-400 block mb-1">Total Inventory Items</span>
                     <h3 id="stat-products-count" class="text-2xl font-black text-gray-900">0</h3>
                 </div>
-                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
                     <span class="text-xs font-bold text-gray-400 block mb-1">Automated Dispatch Engine</span>
                     <button onclick="triggerDailyDispatches()" class="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
                         ⚡ Run Morning Dispatches
                     </button>
                 </div>
-                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
                     <span class="text-xs font-bold text-gray-400 block mb-1">Manage Drivers & Keys</span>
                     <button onclick="openDriverModal()" class="mt-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
                         🚚 Driver Keys & Setup
                     </button>
                 </div>
-                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="security_roles">
                     <span class="text-xs font-bold text-gray-400 block mb-1">Change Admin Key</span>
                     <button onclick="openChangeKeyModal()" class="mt-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
                         🔑 Update Admin Key
@@ -76,7 +101,7 @@
             </div>
 
             <!-- Delivery Order Reassignment & Route Management -->
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <div data-rbac-module="operations_logistics" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div>
                         <h3 class="font-black text-gray-900 text-base">Delivery Orders & Driver Reassignment</h3>
@@ -96,7 +121,7 @@
             </div>
 
             <!-- Product Inventory Management -->
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <div data-rbac-module="catalog_inventory" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <h3 class="font-black text-gray-900 text-base">Product Inventory Management</h3>
@@ -124,6 +149,85 @@
                 </div>
             </div>
 
+
+            <!-- Finance Module (Ledgers, Billing, Tax Compliance VAT/ZATCA, Payouts & Refund Authorizations) -->
+            <div data-rbac-module="finance_billing" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="font-black text-gray-900 text-base">Financial Ledgers, Tax Compliance (VAT/ZATCA) & Refunds</h3>
+                        <p class="text-xs text-gray-500">Controls financial ledgers, billing, VAT/ZATCA tax compliance, invoicing, payouts, and refund authorizations.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="vat-zatca-badge" class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold">VAT/ZATCA: 15% Active</span>
+                        <button onclick="saveTaxComplianceConfig()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl">Update Tax Config</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">Gross Ledger Revenue</span>
+                        <span id="fin-gross-revenue" class="text-lg font-black text-gray-900">SAR 0.00</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">VAT Collected (15%)</span>
+                        <span id="fin-vat-collected" class="text-lg font-black text-emerald-700">SAR 0.00</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">Driver Payouts Settled</span>
+                        <span id="fin-payouts-settled" class="text-lg font-black text-blue-700">SAR 0.00</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                        <span class="text-gray-400 font-bold block">Pending Refund Requests</span>
+                        <span id="fin-pending-refunds" class="text-lg font-black text-amber-700">0</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">ZATCA Tax Registration (TIN / VAT #)</label>
+                        <input type="text" id="fin-zatca-tin" value="300123456700003" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">VAT Rate (%)</label>
+                        <input type="number" id="fin-vat-rate" value="15" step="0.5" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">ZATCA Phase-2 E-Invoicing Mode</label>
+                        <select id="fin-zatca-mode" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-bold">
+                            <option value="clearance_enabled">Phase-2 Clearance & Reporting (Live)</option>
+                            <option value="reporting_only">Simplified Tax Invoice Reporting</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="finance-refunds-list" class="space-y-2 pt-2 text-xs">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Customer Support Module (User Directory, Ticketing & Minor Dispute Escalations) -->
+            <div data-rbac-module="customer_support" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="font-black text-gray-900 text-base">Customer Support Ticketing, User Directory & Dispute Escalations</h3>
+                        <p class="text-xs text-gray-500">Handles user assistance, support ticketing, viewing user directories, and managing minor dispute escalations.</p>
+                    </div>
+                    <button onclick="openNewTicketModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl">
+                        + Log Support Ticket / Dispute
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+                    <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <h4 class="font-black text-gray-800 mb-2">Customer Directory (Read-Only View)</h4>
+                        <div id="support-user-directory" class="space-y-2 max-h-48 overflow-y-auto">
+                            Loading customer directory...
+                        </div>
+                    </div>
+                    <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <h4 class="font-black text-gray-800 mb-2">Active Support Tickets & Minor Dispute Escalations</h4>
+                        <div id="support-tickets-container" class="space-y-2 max-h-48 overflow-y-auto">
+                            Loading support tickets...
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -197,6 +301,88 @@
             <div class="flex justify-end space-x-2 pt-2">
                 <button onclick="closeChangeKeyModal()" class="px-4 py-2 border rounded-xl font-bold text-gray-600">Cancel</button>
                 <button onclick="submitNewAdminKey()" class="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold">Update Key</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal: RBAC Permission Matrix & Role Keys -->
+    <div id="rbac-matrix-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-xl border border-gray-200 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <div>
+                    <h3 class="font-black text-gray-900 text-base">Company Admin Portal — Role-Based Access Control (RBAC) Matrix</h3>
+                    <p class="text-xs text-gray-500">Granular permissions across functional modules ensuring least-privilege access and operational efficiency.</p>
+                </div>
+                <button onclick="closeRbacMatrixModal()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs">✕ Close</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div class="p-3 rounded-xl border border-gray-200 bg-gray-50">
+                    <span class="font-black text-gray-900 block">• Super Admin</span>
+                    <span class="text-gray-600">Ultimate system authority. Manages global configurations, core security, user roles, system infrastructure, and can override any action.</span>
+                </div>
+                <div class="p-3 rounded-xl border border-gray-200 bg-gray-50">
+                    <span class="font-black text-gray-900 block">• Operations Manager</span>
+                    <span class="text-gray-600">Oversees day-to-day business logistics, service catalogues, inventory, booking/order pipelines, and scheduling.</span>
+                </div>
+                <div class="p-3 rounded-xl border border-gray-200 bg-gray-50">
+                    <span class="font-black text-gray-900 block">• Finance</span>
+                    <span class="text-gray-600">Controls financial ledgers, billing, tax compliance (e.g., VAT/ZATCA configurations), invoicing, payouts, and refund authorizations.</span>
+                </div>
+                <div class="p-3 rounded-xl border border-gray-200 bg-gray-50">
+                    <span class="font-black text-gray-900 block">• Customer Support</span>
+                    <span class="text-gray-600">Handles user assistance, support ticketing, viewing user directories, and managing minor dispute escalations.</span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-gray-100 border-b border-gray-200 text-[11px] font-black text-gray-700 uppercase">
+                            <th class="p-3">Functional Module</th>
+                            <th class="p-3">Super Admin</th>
+                            <th class="p-3">Operations Manager</th>
+                            <th class="p-3">Finance</th>
+                            <th class="p-3">Customer Support</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rbac-matrix-table-body" class="divide-y divide-gray-100">
+                        <!-- Populated dynamically from RBAC policy -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="rbac-key-management-box" class="border-t pt-3 space-y-2 text-xs">
+                <h4 class="font-black text-gray-800">Role Access Keys (Super Admin Only)</h4>
+                <div id="rbac-role-keys-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Create Support Ticket / Dispute Escalation -->
+    <div id="support-ticket-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-200 space-y-3 text-xs">
+            <h3 class="font-black text-gray-900 text-base">Log Support Ticket / Minor Dispute Escalation</h3>
+            <div>
+                <label class="block font-bold text-gray-700 mb-1">Customer Email</label>
+                <input type="email" id="ticket-customer-email" placeholder="customer@example.com" class="w-full px-3 py-2 border border-gray-300 rounded-xl">
+            </div>
+            <div>
+                <label class="block font-bold text-gray-700 mb-1">Category</label>
+                <select id="ticket-category" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-bold">
+                    <option value="general_assistance">General User Assistance</option>
+                    <option value="minor_dispute">Minor Dispute Escalation</option>
+                    <option value="delivery_issue">Delivery / Schedule Inquiry</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-bold text-gray-700 mb-1">Subject & Details</label>
+                <textarea id="ticket-summary" placeholder="Describe the customer issue or minor dispute..." class="w-full px-3 py-2 border border-gray-300 rounded-xl"></textarea>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeNewTicketModal()" class="px-4 py-2 border border-gray-300 rounded-xl font-bold text-gray-600">Cancel</button>
+                <button onclick="submitSupportTicket()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold">Create Ticket</button>
             </div>
         </div>
     </div>
