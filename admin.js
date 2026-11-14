@@ -198,7 +198,13 @@ async function loadAdminData() {
         <td class="py-3 font-bold text-gray-900">${p.name}<span class="block font-normal text-[10px] text-gray-400">${p.description || ''}</span></td>
         <td class="py-3">${p.unit || 'Liter'}</td>
         <td class="py-3 font-black text-emerald-700">₹${p.price}</td>
-        <td class="py-3"><span class="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800">${p.stock_quantity || 100}</span></td>
+        <td class="py-3">
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 rounded font-bold ${(p.stock_quantity ?? 0) > 10 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}">${p.stock_quantity ?? 0} Available</span>
+            <input type="number" min="0" id="admin-stock-qty-${p.id}" value="${p.stock_quantity ?? 0}" class="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg font-bold" />
+            <button onclick="updateProductStockQty('${p.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold">Update</button>
+          </div>
+        </td>
         <td class="py-3 text-right">
           <button onclick="deleteProduct('${p.id}')" class="text-red-500 font-bold hover:underline">Delete</button>
         </td>
@@ -579,9 +585,9 @@ async function loadFinanceModule() {
     const ledger = data.ledger || {};
     const tax = data.tax_compliance || {};
 
-    if (document.getElementById("fin-gross-revenue")) document.getElementById("fin-gross-revenue").textContent = `SAR ${Number(ledger.gross_revenue || 0).toFixed(2)}`;
-    if (document.getElementById("fin-vat-collected")) document.getElementById("fin-vat-collected").textContent = `SAR ${Number(ledger.vat_collected || 0).toFixed(2)}`;
-    if (document.getElementById("fin-payouts-settled")) document.getElementById("fin-payouts-settled").textContent = `SAR ${Number(ledger.driver_payouts || 0).toFixed(2)}`;
+    if (document.getElementById("fin-gross-revenue")) document.getElementById("fin-gross-revenue").textContent = `₹${Number(ledger.gross_revenue || 0).toFixed(2)}`;
+    if (document.getElementById("fin-vat-collected")) document.getElementById("fin-vat-collected").textContent = `₹${Number(ledger.vat_collected || 0).toFixed(2)}`;
+    if (document.getElementById("fin-payouts-settled")) document.getElementById("fin-payouts-settled").textContent = `₹${Number(ledger.driver_payouts || 0).toFixed(2)}`;
 
     if (tax.zatca_tin && document.getElementById("fin-zatca-tin")) document.getElementById("fin-zatca-tin").value = tax.zatca_tin;
     if (tax.vat_rate !== undefined && document.getElementById("fin-vat-rate")) document.getElementById("fin-vat-rate").value = tax.vat_rate;
@@ -597,7 +603,7 @@ async function loadFinanceModule() {
       listEl.innerHTML = refunds.length ? refunds.map(r => `
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-3 rounded-xl border border-gray-200 bg-gray-50">
           <div>
-            <span class="font-bold text-gray-900">Refund #${r.id} — Order ${r.order_id} (SAR ${Number(r.amount).toFixed(2)})</span>
+            <span class="font-bold text-gray-900">Refund #${r.id} — Order ${r.order_id} (₹${Number(r.amount).toFixed(2)})</span>
             <span class="block text-[11px] text-gray-500">Customer: ${r.user_email} | Reason: ${r.reason} | Status: <strong class="uppercase">${r.status}</strong></span>
           </div>
           ${r.status === "pending" ? `
@@ -752,5 +758,35 @@ async function resolveSupportTicket(ticketId) {
     }
   } catch (e) {
     alert(`Network error: ${e.message}`);
+  }
+}
+
+
+// ==============================================================================
+// PATCH: LIVE PRODUCT AVAILABLE QUANTITY UPDATION (INR / KERALA)
+// ==============================================================================
+async function updateProductStockQty(productId) {
+  const inputEl = document.getElementById(`admin-stock-qty-${productId}`);
+  if (!inputEl) return;
+  const newQty = parseInt(inputEl.value, 10);
+  if (isNaN(newQty) || newQty < 0) {
+    alert("Please enter a valid non-negative stock quantity.");
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/products/${productId}/stock`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ stock_quantity: newQty })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ Available quantity updated to ${newQty} units.`);
+      loadAdminData();
+    } else {
+      alert(`Error: ${data.detail || "Failed to update stock quantity."}`);
+    }
+  } catch (err) {
+    alert("Network error while updating stock quantity.");
   }
 }
