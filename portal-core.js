@@ -19,6 +19,38 @@
     el.textContent=message;el.className=error?'fmv-notice error':'fmv-notice';el.hidden=false;
     clearTimeout(el.dismissTimer);el.dismissTimer=setTimeout(()=>el.hidden=true,8000);
   }
+  function validationMessage(data, status) {
+    if(typeof data?.detail==='string') return data.detail;
+    const labels={email:'Email address',identifier:'Email or mobile',password:'Password',new_password:'New password',full_name:'Full name',phone:'Mobile number',address:'Delivery address',invitation:'Administrator invitation',portal:'Portal',otp:'Verification code',challenge_id:'Verification session',quantity:'Quantity'};
+    const messages=Array.isArray(data?.detail)?data.detail.map(issue=>{
+      if(!issue || typeof issue!=='object') return '';
+      const field=Array.isArray(issue.loc)?[...issue.loc].reverse().find(part=>typeof part==='string' && Object.hasOwn(labels,part)):undefined;
+      const label=labels[field] || 'This field';
+      const message=typeof issue.msg==='string'?issue.msg:'';
+      if(issue.type==='missing') return field?label+' is required.':'Please complete the required fields.';
+      if(issue.type==='string_too_short'){
+        const minimum=message.match(/at least (\d+) characters?/i)?.[1];
+        return minimum?label+' must contain at least '+minimum+(Number(minimum)===1?' character.':' characters.'):label+' is too short.';
+      }
+      if(issue.type==='string_too_long'){
+        const maximum=message.match(/at most (\d+) characters?/i)?.[1];
+        return maximum?label+' must contain no more than '+maximum+(Number(maximum)===1?' character.':' characters.'):label+' is too long.';
+      }
+      if(field==='email') return 'Enter a valid email address.';
+      if(field==='otp') return 'Enter the six-digit verification code from your email.';
+      if(field==='phone') return 'Enter a valid Indian mobile number.';
+      if(issue.type==='int_parsing' || issue.type==='int_type') return label+' must be a whole number.';
+      return field?label+' is invalid. Please check it and try again.':'Please check the form fields and try again.';
+    }).filter(Boolean):[];
+    return messages.length?[...new Set(messages)].join(' '):'The request could not be completed ('+status+').';
+  }
+  function signupPasswordMessage(password) {
+    const length=Array.from(password).length;
+    if(length<12) return 'Password must contain at least 12 characters.';
+    if(length>128) return 'Password must contain no more than 128 characters.';
+    if(!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) return 'Password must contain at least one letter and one number.';
+    return '';
+  }
   async function request(path, options={}) {
     const headers=new Headers(options.headers || {});
     if(token()) headers.set('Authorization','Bearer '+token());
@@ -30,7 +62,7 @@
     const data=contentType.includes('json')?await response.json():null;
     if(!response.ok){
       if(response.status===401 && !path.startsWith('/auth/')) lock();
-      throw new Error(typeof data?.detail==='string'?data.detail:'The request could not be completed ('+response.status+').');
+      throw new Error(validationMessage(data,response.status));
     }
     return data;
   }
@@ -61,7 +93,12 @@
     document.getElementById('fmv-auth-otp').required=!!challenge;
     document.getElementById('fmv-admin-invite').hidden=portal()!=='admin';
     const input=document.getElementById('fmv-auth-identifier');input.type=signup?'email':'text';input.placeholder=signup?'you@example.com':'Email or Indian mobile number';
-    document.getElementById('fmv-auth-password').autocomplete=signup?'new-password':'current-password';
+    const passwordInput=document.getElementById('fmv-auth-password');
+    passwordInput.autocomplete=signup?'new-password':'current-password';
+    passwordInput.setCustomValidity('');
+    if(signup && !challenge) passwordInput.setAttribute('minlength','12');
+    else passwordInput.removeAttribute('minlength');
+    document.getElementById('fmv-password-help').hidden=!signup || !!challenge;
     gateMessage(challenge?'Enter the six-digit code from your email. It expires after five minutes.':signup && portal()==='driver'?'Driver accounts need email verification and administrator approval.':signup && portal()==='admin'?'Use the invitation issued for your email address.':'');
   }
   async function submitAuth(event){
@@ -74,6 +111,7 @@
         sessionStorage.setItem(tokenKey(),result.access_token);user=result.user;challenge=null;unlock();
       }else{
         const signup=authMode==='signup';
+        if(signup){const message=signupPasswordMessage(document.getElementById('fmv-auth-password').value);if(message)throw new Error(message);}
         const body=signup?{email:val('fmv-auth-identifier'),password:document.getElementById('fmv-auth-password').value,full_name:val('fmv-auth-name'),phone:val('fmv-auth-phone'),address:val('fmv-auth-address'),invitation:val('fmv-auth-invitation'),portal:portal()}:{identifier:val('fmv-auth-identifier'),password:document.getElementById('fmv-auth-password').value,portal:portal()};
         const result=await request('/auth/'+(signup?'signup':'signin'),{method:'POST',body});
         challenge=result.challenge_id;document.getElementById('fmv-auth-password').value='';renderAuth();document.getElementById('fmv-auth-otp').focus();
@@ -172,11 +210,12 @@
   document.addEventListener('DOMContentLoaded',async()=>{
     adoptActions(document.body);
     const gate=document.createElement('section');gate.id='fmv-auth-gate';gate.setAttribute('aria-label','Portal authentication');
-    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India · INR</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><p class="fmv-subtitle">Sign in securely to continue</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation<input id="fmv-auth-invitation" type="password" autocomplete="off"></label></div><label>Email or mobile<input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" placeholder="At least 12 characters, letters and numbers"></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code (after 60 seconds)</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div>`;
+    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India · INR</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><p class="fmv-subtitle">Sign in securely to continue</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation<input id="fmv-auth-invitation" type="password" autocomplete="off"></label></div><label>Email or mobile<input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="At least 12 characters, letters and numbers"><small id="fmv-password-help">Use 12–128 characters, including letters and numbers.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code (after 60 seconds)</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div>`;
     document.body.prepend(gate);
     const bar=document.createElement('div');bar.id='fmv-session-bar';bar.hidden=true;bar.innerHTML='<span id="fmv-session-name"></span><button type="button" id="fmv-logout">Sign out</button>';document.body.append(bar);
     document.getElementById('fmv-logout').addEventListener('click',logout);
     document.getElementById('fmv-auth-form').addEventListener('submit',submitAuth);
+    document.getElementById('fmv-auth-password').addEventListener('invalid',()=>{if(authMode==='signup' && !challenge){const message=signupPasswordMessage(document.getElementById('fmv-auth-password').value);if(message)gateMessage(message,true);}});
     document.getElementById('fmv-tab-signin').addEventListener('click',()=>setMode('signin'));
     document.getElementById('fmv-tab-signup').addEventListener('click',()=>setMode('signup'));
     document.getElementById('fmv-restart').addEventListener('click',()=>setMode(authMode));
