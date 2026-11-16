@@ -9,6 +9,9 @@
   let user = null, revision = null, syncTimer = null, challenge = null, authMode = 'signin', lastActivity = Date.now(), authBusy = false;
   const tokenKey = () => 'fmv_session_' + portal();
   const token = () => sessionStorage.getItem(tokenKey()) || '';
+  const pendingKey = () => 'fmv_pending_auth_' + portal();
+  let pending = null, challengeClock = null, challengeTimer = null, resendBusy = false, expiredNotice = false;
+  let authGeneration = 0, restoreBusy = false, hiddenAt = null;
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const val = id => document.getElementById(id)?.value?.trim() || '';
   const money = amount => new Intl.NumberFormat('en-IN', {style:'currency',currency:'INR'}).format(Number(amount || 0));
@@ -53,7 +56,8 @@
   }
   async function request(path, options={}) {
     const headers=new Headers(options.headers || {});
-    if(token()) headers.set('Authorization','Bearer '+token());
+    const requestToken=token();
+    if(requestToken) headers.set('Authorization','Bearer '+requestToken);
     if(options.body && typeof options.body !== 'string'){headers.set('Content-Type','application/json');options={...options,body:JSON.stringify(options.body)};}
     let response;
     try{response=await nativeFetch(apiBase+path,{...options,headers,credentials:'omit',cache:'no-store',signal:options.signal || AbortSignal.timeout(30000)});}
@@ -61,8 +65,11 @@
     const contentType=response.headers.get('content-type') || '';
     const data=contentType.includes('json')?await response.json():null;
     if(!response.ok){
-      if(response.status===401 && !path.startsWith('/auth/')) lock();
-      throw new Error(validationMessage(data,response.status));
+      if(response.status===401 && requestToken && !path.startsWith('/auth/') && token()===requestToken) lock();
+      const error=new Error(validationMessage(data,response.status));error.status=response.status;
+      const numberHeader=name=>{const value=response.headers.get(name);return value!==null && Number.isFinite(Number(value))?Number(value):null;};
+      error.timing={server_time:numberHeader('X-Server-Time'),resend_available_at:numberHeader('X-Resend-Available-At'),expires_at:numberHeader('X-OTP-Expires-At'),retry_after:numberHeader('Retry-After')};
+      throw error;
     }
     return data;
   }
@@ -76,7 +83,51 @@
     return nativeFetch(input,options);
   };
   function gateMessage(message,error=false){const e=document.getElementById('fmv-auth-message');if(e){e.textContent=message;e.classList.toggle('error',error);}}
-  function setMode(mode){authMode=mode;challenge=null;document.getElementById('fmv-auth-form').reset();renderAuth();}
+  function clearChallenge(){
+    challenge=null;pending=null;challengeClock=null;expiredNotice=false;
+    clearInterval(challengeTimer);challengeTimer=null;sessionStorage.removeItem(pendingKey());
+  }
+  function challengeNow(){
+    return pending.server_time+(challengeClock.elapsed+Math.max(0,performance.now()-challengeClock.monotonic))/1000;
+  }
+  function updateChallengeClock(){
+    const button=document.getElementById('fmv-resend');if(!button)return;
+    if(!challenge || !pending){button.disabled=true;button.textContent='Resend code';document.getElementById('fmv-auth-submit').disabled=authBusy || resendBusy;return;}
+    const now=challengeNow(),seconds=Math.max(0,Math.ceil(pending.resend_available_at-now)),expired=now>=pending.expires_at;
+    button.disabled=authBusy || resendBusy || seconds>0 || expired;
+    button.textContent=expired?'Code expired':resendBusy?'Sending code…':seconds?'Resend code in '+String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):'Resend code';
+    document.getElementById('fmv-auth-submit').disabled=authBusy || resendBusy || expired;
+    if(expired && !expiredNotice){expiredNotice=true;gateMessage('Verification code expired. Choose Start again to sign in or sign up.',true);}
+  }
+  function useChallenge(data,restored=false){
+    if(typeof data.challenge_id!=='string' || !data.challenge_id)throw new Error('The verification request could not be confirmed. Please try again.');
+    const finite=value=>typeof value==='number' && Number.isFinite(value);
+    const server=finite(data.server_time)?data.server_time:Date.now()/1000;
+    challenge=data.challenge_id;
+    // Persist only challenge identity, portal/mode and timing, never form input.
+    pending={portal:portal(),mode:authMode,challenge_id:challenge,server_time:server,
+      resend_available_at:finite(data.resend_available_at)?data.resend_available_at:server+60,
+      expires_at:finite(data.expires_at)?data.expires_at:server+(finite(data.expires_in)?data.expires_in:300),
+      received_at:restored?data.received_at:Date.now()};
+    challengeClock={monotonic:performance.now(),elapsed:restored?Math.max(0,Date.now()-pending.received_at):0};
+    hiddenAt=document.hidden?Date.now():null;
+    sessionStorage.setItem(pendingKey(),JSON.stringify(pending));expiredNotice=false;
+    clearInterval(challengeTimer);challengeTimer=setInterval(updateChallengeClock,250);
+    renderAuth();
+  }
+  function restoreChallenge(){
+    try{
+      const data=JSON.parse(sessionStorage.getItem(pendingKey()) || 'null');
+      if(!data)return false;
+      if(data.portal!==portal() || !['signin','signup'].includes(data.mode) || typeof data.challenge_id!=='string' || !data.challenge_id || data.challenge_id.length>200 || !['server_time','resend_available_at','expires_at','received_at'].every(key=>typeof data[key]==='number' && Number.isFinite(data[key])) || data.expires_at<data.server_time)throw new Error('Invalid pending verification.');
+      authMode=data.mode;useChallenge(data,true);return true;
+    }catch(e){clearChallenge();return false;}
+  }
+  function authFieldsVisible(visible){
+    const fields=document.getElementById('fmv-auth-fields'),check=document.getElementById('fmv-session-check');
+    if(fields)fields.hidden=!visible;if(check)check.hidden=visible;
+  }
+  function setMode(mode){authGeneration++;authMode=mode;clearChallenge();document.getElementById('fmv-auth-form').reset();authFieldsVisible(true);renderAuth();}
   function renderAuth(){
     const signup=authMode==='signup';
     document.getElementById('fmv-signup-fields').hidden=!signup;
@@ -85,9 +136,9 @@
     document.getElementById('fmv-auth-submit').textContent=challenge?'Verify code':signup?'Create account & send code':'Sign in & send code';
     document.getElementById('fmv-tab-signin').setAttribute('aria-selected',String(!signup));
     document.getElementById('fmv-tab-signup').setAttribute('aria-selected',String(signup));
-    document.getElementById('fmv-auth-name').required=signup;
-    document.getElementById('fmv-auth-phone').required=signup;
-    document.getElementById('fmv-auth-address').required=signup;
+    document.getElementById('fmv-auth-name').required=signup && !challenge;
+    document.getElementById('fmv-auth-phone').required=signup && !challenge;
+    document.getElementById('fmv-auth-address').required=signup && !challenge;
     document.getElementById('fmv-auth-identifier').required=!challenge;
     document.getElementById('fmv-auth-password').required=!challenge;
     document.getElementById('fmv-auth-otp').required=!!challenge;
@@ -100,32 +151,39 @@
     else passwordInput.removeAttribute('minlength');
     document.getElementById('fmv-password-help').hidden=!signup || !!challenge;
     gateMessage(challenge?'Enter the six-digit code from your email. It expires after five minutes.':signup && portal()==='driver'?'Driver accounts need email verification and administrator approval.':signup && portal()==='admin'?'Use the invitation issued for your email address.':'');
+    updateChallengeClock();
   }
   async function submitAuth(event){
     event.preventDefault();if(authBusy)return;authBusy=true;
-    const btn=document.getElementById('fmv-auth-submit');btn.disabled=true;
+    const generation=authGeneration,btn=document.getElementById('fmv-auth-submit');btn.disabled=true;
     try{
       if(challenge){
+        if(challengeNow()>=pending.expires_at)throw new Error('Verification code expired. Choose Start again.');
         const result=await request('/auth/verify-otp',{method:'POST',body:{challenge_id:challenge,otp:val('fmv-auth-otp')}});
-        if(result.pending_approval){challenge=null;authMode='signin';renderAuth();gateMessage(result.message);return;}
-        sessionStorage.setItem(tokenKey(),result.access_token);user=result.user;challenge=null;unlock();
+        if(generation!==authGeneration)return;
+        if(result.pending_approval){setMode('signin');gateMessage(result.message);return;}
+        if(!result.access_token || !result.user || result.user.portal!==portal())throw new Error('The session could not be confirmed. Start sign-in again.');
+        sessionStorage.setItem(tokenKey(),result.access_token);user=result.user;clearChallenge();unlock();
       }else{
         const signup=authMode==='signup';
         if(signup){const message=signupPasswordMessage(document.getElementById('fmv-auth-password').value);if(message)throw new Error(message);}
         const body=signup?{email:val('fmv-auth-identifier'),password:document.getElementById('fmv-auth-password').value,full_name:val('fmv-auth-name'),phone:val('fmv-auth-phone'),address:val('fmv-auth-address'),invitation:val('fmv-auth-invitation'),portal:portal()}:{identifier:val('fmv-auth-identifier'),password:document.getElementById('fmv-auth-password').value,portal:portal()};
         const result=await request('/auth/'+(signup?'signup':'signin'),{method:'POST',body});
-        challenge=result.challenge_id;document.getElementById('fmv-auth-password').value='';renderAuth();document.getElementById('fmv-auth-otp').focus();
+        if(generation!==authGeneration)return;
+        document.getElementById('fmv-auth-password').value='';useChallenge(result);document.getElementById('fmv-auth-otp').focus();
       }
-    }catch(e){gateMessage(e.message,true);}finally{authBusy=false;btn.disabled=false;}
+    }catch(e){if(generation===authGeneration)gateMessage(e.message,true);}finally{authBusy=false;btn.disabled=false;updateChallengeClock();}
   }
   function lock(){
-    sessionStorage.removeItem(tokenKey());user=null;clearInterval(syncTimer);syncTimer=null;
+    authGeneration++;sessionStorage.removeItem(tokenKey());clearChallenge();user=null;clearInterval(syncTimer);syncTimer=null;
     document.documentElement.classList.add('fmv-locked');
     document.getElementById('fmv-auth-gate')?.removeAttribute('hidden');
     if(document.getElementById('fmv-session-bar'))document.getElementById('fmv-session-bar').hidden=true;
+    if(document.getElementById('fmv-auth-form')){authMode='signin';document.getElementById('fmv-auth-form').reset();authFieldsVisible(true);renderAuth();}
     document.dispatchEvent(new CustomEvent('fmv:locked'));
   }
   function unlock(){
+    clearChallenge();
     document.documentElement.classList.remove('fmv-locked');document.getElementById('fmv-auth-gate').hidden=true;
     document.getElementById('fmv-auth-form').reset();lastActivity=Date.now();
     document.getElementById('fmv-session-bar').hidden=false;
@@ -137,7 +195,46 @@
       try{const d=await request('/sync');if(revision!==d.revision){revision=d.revision;document.dispatchEvent(new CustomEvent('fmv:sync'));}}catch(e){if(!user)return;notice(e.message,true);}
     },6000);
   }
-  async function logout(){try{if(token())await request('/auth/logout',{method:'POST'});}catch(e){}finally{lock();}}
+  async function logout(){
+    const revocation=token()?request('/auth/logout',{method:'POST'}):Promise.resolve();lock();
+    try{await revocation;}catch(e){if(![401,403].includes(e.status))gateMessage('Signed out on this device. The server could not confirm revocation of this session; it may remain valid until its normal expiry.',true);}
+  }
+  async function resendCode(){
+    updateChallengeClock();if(document.getElementById('fmv-resend').disabled)return;
+    const generation=authGeneration;resendBusy=true;updateChallengeClock();
+    try{
+      const result=await request('/auth/request-otp',{method:'POST',body:{challenge_id:challenge}});
+      if(generation!==authGeneration)return;
+      document.getElementById('fmv-auth-otp').value='';useChallenge(result);gateMessage(result.message || 'A new verification code has been sent.');
+    }catch(e){
+      if(generation!==authGeneration)return;
+      if(e.status===429 && pending){
+        const times=e.timing || {},server=times.server_time??challengeNow();
+        useChallenge({challenge_id:challenge,server_time:server,resend_available_at:times.resend_available_at??server+(times.retry_after??60),expires_at:times.expires_at??pending.expires_at});
+      }
+      gateMessage(e.message,true);
+    }finally{resendBusy=false;updateChallengeClock();}
+  }
+  async function restoreSession(){
+    if(restoreBusy || !token())return;
+    restoreBusy=true;const storedToken=token(),generation=authGeneration;authFieldsVisible(false);
+    document.getElementById('fmv-session-status').textContent='Checking your saved session…';
+    document.getElementById('fmv-session-retry').hidden=true;document.getElementById('fmv-session-discard').hidden=true;
+    try{
+      const result=await request('/auth/session');
+      if(token()!==storedToken || generation!==authGeneration)return;
+      if(result.user && result.user.portal!==portal()){lock();gateMessage('This saved session belongs to a different portal. Please sign in here.',true);return;}
+      if(!result.user)throw new Error('The session response could not be confirmed.');
+      user=result.user;unlock();
+    }catch(e){
+      if(token()!==storedToken || generation!==authGeneration)return;
+      if([401,403].includes(e.status)){lock();gateMessage('Your saved session has expired or was revoked. Please sign in again.',true);}
+      else{
+        document.getElementById('fmv-session-status').textContent='We could not check your saved session. Your sign-in is kept on this device. Retry when the connection returns.';
+        document.getElementById('fmv-session-retry').hidden=false;document.getElementById('fmv-session-discard').hidden=false;
+      }
+    }finally{restoreBusy=false;}
+  }
   async function guard(action){try{return await action();}catch(e){notice(e.message,true);return null;}}
   async function download(path,name){
     const response=await nativeFetch(apiBase+path,{headers:{Authorization:'Bearer '+token()},credentials:'omit'});
@@ -210,7 +307,10 @@
   document.addEventListener('DOMContentLoaded',async()=>{
     adoptActions(document.body);
     const gate=document.createElement('section');gate.id='fmv-auth-gate';gate.setAttribute('aria-label','Portal authentication');
-    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India · INR</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><p class="fmv-subtitle">Sign in securely to continue</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation<input id="fmv-auth-invitation" type="password" autocomplete="off"></label></div><label>Email or mobile<input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="At least 12 characters, letters and numbers"><small id="fmv-password-help">Use 12–128 characters, including letters and numbers.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code (after 60 seconds)</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div>`;
+    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India · INR</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><div id="fmv-session-check" hidden><p id="fmv-session-status" role="status">Checking your saved session…</p><button id="fmv-session-retry" type="button" class="fmv-primary" hidden>Retry session check</button><button id="fmv-session-discard" type="button" class="fmv-text-button" hidden>Sign out on this device</button></div><div id="fmv-auth-fields"><p class="fmv-subtitle">Sign in securely to continue</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation<input id="fmv-auth-invitation" type="password" autocomplete="off"></label></div><label>Email or mobile<input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="At least 12 characters, letters and numbers"><small id="fmv-password-help">Use 12–128 characters, including letters and numbers.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div></div>`;
+    // Choose the loading state before insertion: no sign-in flash while validating.
+    gate.querySelector('#fmv-auth-fields').hidden=!!token();
+    gate.querySelector('#fmv-session-check').hidden=!token();
     document.body.prepend(gate);
     const bar=document.createElement('div');bar.id='fmv-session-bar';bar.hidden=true;bar.innerHTML='<span id="fmv-session-name"></span><button type="button" id="fmv-logout">Sign out</button>';document.body.append(bar);
     document.getElementById('fmv-logout').addEventListener('click',logout);
@@ -219,7 +319,9 @@
     document.getElementById('fmv-tab-signin').addEventListener('click',()=>setMode('signin'));
     document.getElementById('fmv-tab-signup').addEventListener('click',()=>setMode('signup'));
     document.getElementById('fmv-restart').addEventListener('click',()=>setMode(authMode));
-    document.getElementById('fmv-resend').addEventListener('click',()=>guard(async()=>{const result=await request('/auth/request-otp',{method:'POST',body:{challenge_id:challenge}});challenge=result.challenge_id;gateMessage(result.message);}));
+    document.getElementById('fmv-resend').addEventListener('click',resendCode);
+    document.getElementById('fmv-session-retry').addEventListener('click',restoreSession);
+    document.getElementById('fmv-session-discard').addEventListener('click',logout);
     document.getElementById('fmv-password-reset').addEventListener('click',()=>guard(async()=>{
       const email=prompt('Registered email address:');if(!email)return;
       const result=await request('/auth/password-reset/request',{method:'POST',body:{email,portal:portal()}});
@@ -229,7 +331,24 @@
       await request('/auth/password-reset/confirm',{method:'POST',body:{reset_token:verified.reset_token,new_password:password}});gateMessage('Password changed. Sign in with your new password.');
     }));
     for(const evt of ['pointerdown','keydown','touchstart'])document.addEventListener(evt,()=>lastActivity=Date.now(),{passive:true});
+    const refreshCountdown=()=>{
+      if(pending && hiddenAt!==null){
+        // On resume, account for platforms whose monotonic clock pauses in sleep.
+        // Active-page clock edits never change the monotonic countdown. The server
+        // still rejects early resend requests and returns authoritative new anchors.
+        const elapsed=challengeClock.elapsed+Math.max(0,performance.now()-challengeClock.monotonic);
+        challengeClock={monotonic:performance.now(),elapsed:Math.max(elapsed,Date.now()-pending.received_at,0)};
+        hiddenAt=null;
+      }
+      updateChallengeClock();
+    };
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else refreshCountdown();});
+    window.addEventListener('pageshow',refreshCountdown);window.addEventListener('focus',refreshCountdown);
     renderAuth();
-    if(token()){try{const result=await request('/auth/session');if(result.user.portal!==portal())throw new Error('Wrong portal session.');user=result.user;unlock();}catch(e){lock();gateMessage(e.message,true);}}
+    if(token()){
+      // Let all controller DOMContentLoaded handlers finish building their views
+      // before an authenticated event can start rendering data into them.
+      setTimeout(restoreSession,0);
+    }else restoreChallenge();
   });
 })();
