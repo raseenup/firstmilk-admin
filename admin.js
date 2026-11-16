@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://backend.firstmilkventure.com";
+const API_BASE_URL = window.FMV.apiBase;
 
 const RBAC_ROLES = {
   super_admin: {
@@ -790,3 +790,123 @@ async function updateProductStockQty(productId) {
     alert("Network error while updating stock quantity.");
   }
 }
+
+// ============================================================================
+// v8 ACTIVE CONTROLLERS: verified individual sessions and shared backend state.
+// Original modules above are retained; these declarations replace legacy actions.
+// ============================================================================
+let fmvAdminProducts = new Map();
+function getAuthHeaders(extra={}) { return {Authorization:'Bearer '+FMV.token,...extra}; }
+function authenticateAdmin(){FMV.showAuth('signin');}
+function checkAdminAuth(){
+  const u=FMV.user;if(!u || u.portal!=='admin')return;
+  document.getElementById('staff-login-section').classList.add('hidden');
+  document.getElementById('staff-dashboard').classList.remove('hidden');
+  document.getElementById('staff-role-badge').textContent=RBAC_ROLES[u.role]?.label || u.role;
+  applyRbacPermissions(u.role);refreshAdmin();
+}
+function handleStaffLogout(){return FMV.logout();}
+function refreshAdmin(){
+  const role=FMV.user?.role;if(!role)return;
+  const modules=RBAC_ROLES[role]?.modules || [];
+  if(modules.includes('catalog_inventory'))loadAdminData();
+  if(modules.includes('operations_logistics')){loadAdminDeliveries();loadAdminAttendance();}
+  if(modules.includes('finance_billing'))loadFinanceModule();
+  if(modules.includes('customer_support'))loadSupportModule();
+}
+async function loadAdminData(){return FMV.guard(async()=>{
+  const products=await FMV.request('/products');fmvAdminProducts=new Map(products.map(p=>[p.id,p]));
+  document.getElementById('stat-products-count').textContent=products.length;
+  if(document.activeElement?.closest('#admin-product-table'))return;
+  const e=FMV.escape;
+  FMV.setHTML('admin-product-table',products.map(p=>`<tr><td class="py-3"><strong>${e(p.name)}</strong><small class="block">${e(p.description)}</small></td><td>${e(p.unit)}</td><td><input aria-label="Price for ${e(p.name)}" class="fmv-input" type="number" min="0" step="0.01" id="fmv-price-${e(p.id)}" value="${Number(p.price)}"><small class="block">INR · GST <input class="fmv-input" aria-label="GST rate" type="number" min="0" max="100" step="0.01" id="fmv-tax-${e(p.id)}" value="${Number(p.tax_rate || 0)}">%</small></td><td><strong>${Number(p.stock_quantity)} available</strong><div class="fmv-flex"><input aria-label="Stock for ${e(p.name)}" class="fmv-input" type="number" min="0" step="1" id="admin-stock-qty-${e(p.id)}" value="${Number(p.stock_quantity)}"><button class="fmv-btn" onclick="updateProductStockQty('${e(p.id)}')">Save stock & price</button></div></td><td><button class="fmv-btn danger" onclick="deleteProduct('${e(p.id)}')">Delete</button></td></tr>`).join('') || '<tr><td colspan="5">No products. Add the first product.</td></tr>');
+});}
+async function updateProductStockQty(id){return FMV.guard(async()=>{
+  const stock=Number(FMV.val('admin-stock-qty-'+id)),price=Number(FMV.val('fmv-price-'+id)),tax=Number(FMV.val('fmv-tax-'+id));
+  if(!Number.isInteger(stock)||stock<0||!Number.isFinite(price)||price<0||!Number.isFinite(tax)||tax<0||tax>100)throw new Error('Enter valid stock, price and GST rate.');
+  await FMV.request('/admin/products/'+encodeURIComponent(id)+'/stock',{method:'PATCH',body:{stock_quantity:stock,price,tax_rate:tax,version:fmvAdminProducts.get(id)?.version}});
+  FMV.notice('Stock, price and GST rate saved.');document.activeElement?.blur();await loadAdminData();
+});}
+async function loadAdminDeliveries(){return FMV.guard(async()=>{
+  const day=FMV.val('admin-date-input'),zone=FMV.val('admin-zone-select');
+  const [orders,drivers]=await Promise.all([FMV.request('/admin/deliveries?delivery_date='+encodeURIComponent(day)+'&zone_id='+encodeURIComponent(zone)),FMV.request('/admin/drivers')]);
+  const active=drivers.filter(d=>d.approved && !d.deleted),e=FMV.escape;
+  if(document.activeElement?.closest('#admin-deliveries-container'))return;
+  FMV.setHTML('admin-deliveries-container',orders.map(o=>`<div class="fmv-panel"><div class="fmv-row"><strong>${e(o.order_number)}</strong><span>${e(o.status)} · ${FMV.money(o.total_amount)}</span></div><p class="fmv-small">${e(o.customer_name)} · ${e(o.customer_phone)}<br>${e(o.delivery_address)}<br>${e(o.items_summary)}<br>Payment: ${e(o.payment_status)} · Driver: ${e(o.assigned_driver || 'Unassigned')}</p><div class="fmv-flex"><select class="fmv-input" id="assign-select-${e(o.id)}"><option value="">Choose driver</option>${active.map(d=>`<option value="${e(d.id)}" ${o.assigned_driver_id===d.id?'selected':''}>${e(d.name)}</option>`).join('')}</select><button class="fmv-btn" onclick="reassignOrder('${e(o.id)}')">Assign / reassign</button></div></div>`).join('') || FMV.empty('No deliveries for this date and zone.'));
+});}
+async function reassignOrder(id){return FMV.guard(async()=>{
+  const driver=FMV.val('assign-select-'+id);if(!driver)throw new Error('Choose an approved driver.');
+  await FMV.request('/admin/deliveries/'+encodeURIComponent(id)+'/assign',{method:'PATCH',body:{driver_key:driver}});
+  FMV.notice('Assignment saved.');await loadAdminDeliveries();
+});}
+async function loadDriversList(){return FMV.guard(async()=>{
+  const drivers=await FMV.request('/admin/drivers'),e=FMV.escape;
+  FMV.setHTML('drivers-list-admin',drivers.map(d=>`<div class="fmv-row"><div><strong>${e(d.name)}</strong><p class="fmv-small">${e(d.email || 'Awaiting registration')} · ${e(d.phone)}<br>${e(d.address)}<br>${d.approved?'Approved':'Pending approval'}</p></div><div class="fmv-flex">${!d.approved && d.email?`<button class="fmv-btn" onclick="approveDriver('${e(d.id)}')">Approve</button>`:''}<button class="fmv-btn danger" onclick="deleteDriver('${e(d.id)}')">Remove</button></div></div>`).join('') || FMV.empty('No registered drivers. Drivers can sign up at the driver portal.'));
+});}
+async function approveDriver(id){return FMV.guard(async()=>{await FMV.request('/admin/drivers/'+encodeURIComponent(id)+'/approve',{method:'POST'});FMV.notice('Driver approved.');loadDriversList();});}
+async function deleteDriver(id){if(!confirm('Disable this driver account?'))return;return FMV.guard(async()=>{await FMV.request('/admin/drivers/'+encodeURIComponent(id),{method:'DELETE'});loadDriversList();});}
+async function createNewDriver(){return FMV.guard(async()=>{
+  const body={driver_key:FMV.val('new-driver-key'),name:FMV.val('new-driver-name'),phone:FMV.val('new-driver-phone'),address:FMV.val('new-driver-address')};
+  const result=await FMV.request('/admin/drivers',{method:'POST',body});FMV.notice(result.message);await loadDriversList();
+});}
+async function submitNewProduct(){return FMV.guard(async()=>{
+  const body={name:FMV.val('new-prod-name'),description:FMV.val('new-prod-desc'),price:Number(FMV.val('new-prod-price')),unit:FMV.val('new-prod-unit'),stock_quantity:Number(FMV.val('fmv-new-stock') || '0'),min_stock_threshold:20,image_url:''};
+  if(!Number.isInteger(body.stock_quantity)||body.stock_quantity<0)throw new Error('Stock must be a non-negative integer.');
+  await FMV.request('/admin/products',{method:'POST',body});closeNewProductModal();FMV.notice('Product created.');await loadAdminData();
+});}
+async function deleteProduct(id){if(!confirm('Remove this product from the active catalog?'))return;return FMV.guard(async()=>{await FMV.request('/admin/products/'+encodeURIComponent(id),{method:'DELETE'});loadAdminData();});}
+async function triggerDailyDispatches(){const target=prompt('Dispatch date (YYYY-MM-DD):',new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}));if(!target)return;return FMV.guard(async()=>{const result=await FMV.request('/admin/generate-deliveries',{method:'POST',body:{target_date:target}});FMV.notice('Dispatches ready: '+result.orders.length);loadAdminDeliveries();});}
+async function loadRbacRoleKeys(){return FMV.guard(async()=>{
+  const result=await FMV.request('/admin/rbac/roles');FMV.setHTML('rbac-role-keys-list',Object.entries(result.roles).map(([key,value])=>`<div class="fmv-row"><strong>${FMV.escape(RBAC_ROLES[key]?.label || key)}</strong><span class="fmv-small">Individual password + email OTP</span></div>`).join('')+'<button class="fmv-btn" onclick="inviteAdministrator()">Invite staff member</button>');
+});}
+async function inviteAdministrator(){return FMV.guard(async()=>{
+  const email=prompt('Staff email address:');if(!email)return;
+  const role=prompt('Role: super_admin, operations_manager, finance, customer_support','operations_manager');if(!role)return;
+  const result=await FMV.request('/admin/invitations',{method:'POST',body:{email,role}});
+  prompt('Private invitation code for '+email+' (expires in 24 hours):',result.invitation);
+});}
+function openChangeKeyModal(){FMV.notice('Use Forgot password on the sign-in screen to change your individual password. Shared keys are disabled.');}
+function submitNewAdminKey(){openChangeKeyModal();}
+function rotateRoleKey(){openChangeKeyModal();}
+async function loadFinanceModule(){return FMV.guard(async()=>{
+  const result=await FMV.request('/admin/finance/overview'),l=result.ledger,t=result.tax_compliance,e=FMV.escape;
+  for(const [id,value] of [['fin-gross-revenue',l.gross_revenue],['fin-vat-collected',l.vat_collected],['fin-payouts-settled',l.driver_payouts]]){const el=document.getElementById(id);if(el)el.textContent=FMV.money(value);}
+  document.getElementById('fin-zatca-tin').value=t.gstin || '';document.getElementById('fin-vat-rate').value=t.vat_rate;
+  document.getElementById('vat-zatca-badge').textContent='India GST · INR';
+  document.getElementById('fin-pending-refunds').textContent=result.refund_requests.filter(c=>c.status==='under_review').length;
+  FMV.setHTML('finance-refunds-list',result.refund_requests.map(c=>`<div class="fmv-row"><div><strong>${e(c.id)}</strong><p class="fmv-small">${e(c.order_id)} · ${e(c.reason)}<br>${FMV.money(c.amount)} · ${e(c.status)}</p></div>${c.status==='under_review'?`<div class="fmv-flex"><button class="fmv-btn" onclick="authorizeRefund('${e(c.id)}','approved')">Approve review</button><button class="fmv-btn danger" onclick="authorizeRefund('${e(c.id)}','rejected')">Reject</button></div>`:''}</div>`).join('') || FMV.empty('No return or refund claims.'));
+});}
+async function saveTaxComplianceConfig(){return FMV.guard(async()=>{const result=await FMV.request('/admin/finance/tax-config',{method:'PATCH',body:{zatca_tin:FMV.val('fin-zatca-tin'),vat_rate:Number(FMV.val('fin-vat-rate')),zatca_mode:'india_gst'}});FMV.notice(result.message);loadFinanceModule();});}
+async function authorizeRefund(id,status){return FMV.guard(async()=>{const result=await FMV.request('/admin/finance/refunds/'+encodeURIComponent(id),{method:'PATCH',body:{status}});FMV.notice(result.message);loadFinanceModule();});}
+async function loadSupportModule(){return FMV.guard(async()=>{
+  const [users,tickets]=await Promise.all([FMV.request('/admin/support/users'),FMV.request('/admin/support/tickets')]),e=FMV.escape;
+  FMV.setHTML('support-user-directory',users.users.map(u=>`<div class="fmv-row"><div><strong>${e(u.full_name)}</strong><p class="fmv-small">${e(u.email)} · ${e(u.phone)}<br>${e(u.address)}</p></div></div>`).join('') || FMV.empty('No customer accounts yet.'));
+  FMV.setHTML('support-tickets-container',tickets.tickets.map(t=>`<div class="fmv-row"><div><strong>${e(t.subject || t.summary)}</strong><p class="fmv-small">${e(t.customer_email)} · ${e(t.category)} · ${e(t.status)}<br>${e(t.description)}</p></div>${t.status!=='resolved'?`<button class="fmv-btn" onclick="resolveSupportTicket('${e(t.id)}')">Resolve</button>`:''}</div>`).join('') || FMV.empty('No tickets.'));
+});}
+async function submitSupportTicket(){return FMV.guard(async()=>{await FMV.request('/admin/support/tickets',{method:'POST',body:{customer_email:FMV.val('ticket-customer-email'),category:FMV.val('ticket-category'),summary:FMV.val('ticket-summary')}});closeNewTicketModal();FMV.notice('Ticket saved.');loadSupportModule();});}
+async function resolveSupportTicket(id){return FMV.guard(async()=>{await FMV.request('/admin/support/tickets/'+encodeURIComponent(id),{method:'PATCH',body:{status:'resolved'}});loadSupportModule();});}
+async function loadAdminAttendance(){return FMV.guard(async()=>{
+  const [a,sos]=await Promise.all([FMV.request('/admin/attendance'),FMV.request('/admin/sos')]),e=FMV.escape;
+  FMV.setHTML('fmv-attendance-list',a.shifts.slice().reverse().map(sh=>`<div class="fmv-row"><div><strong>${e(sh.driver_name)}</strong><p class="fmv-small">${e(sh.clock_in)} · ${e(sh.status)}<br>${(sh.work_seconds/3600).toFixed(2)} work hours · ${(sh.break_duration_seconds/60).toFixed(0)} break minutes</p></div></div>`).join('') || FMV.empty('No attendance yet.'));
+  FMV.setHTML('fmv-sos-list',sos.alerts.map(a=>`<div class="fmv-row"><div><strong>SOS · ${e(a.driver_name)}</strong><p class="fmv-small">${e(a.message)}<br>${e(a.created_at)}</p></div></div>`).join('') || FMV.empty('No SOS alerts.'));
+});}
+function exportAttendance(){return FMV.guard(async()=>{const month=prompt('Month (YYYY-MM):',new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}).slice(0,7));if(month)await FMV.download('/admin/attendance/export?month='+encodeURIComponent(month),'attendance-'+month+'.csv');});}
+document.addEventListener('fmv:authenticated',checkAdminAuth);
+document.addEventListener('fmv:sync',refreshAdmin);
+document.addEventListener('DOMContentLoaded',()=>{
+  const price=document.getElementById('new-prod-price');if(price){const label=document.createElement('label');label.className='block';label.textContent='Initial available stock';const input=document.createElement('input');input.id='fmv-new-stock';input.type='number';input.min='0';input.step='1';input.value='0';input.className=price.className;label.append(input);price.parentElement.after(label);}
+  const table=document.getElementById('admin-product-table')?.closest('table');if(table){const wrapper=document.createElement('div');wrapper.className='fmv-table-scroll';table.parentElement.insertBefore(wrapper,table);wrapper.append(table);}
+  const dashboard=document.getElementById('staff-dashboard');if(dashboard){const panel=document.createElement('section');panel.className='fmv-panel';panel.setAttribute('data-rbac-module','operations_logistics');panel.innerHTML='<div class="fmv-row"><h3>Driver attendance & fleet alerts</h3><button class="fmv-btn" onclick="exportAttendance()">Monthly hours CSV</button></div><div id="fmv-attendance-list"></div><h3>SOS alerts</h3><div id="fmv-sos-list"></div>';dashboard.append(panel);}
+  const mode=document.getElementById('fin-zatca-mode');if(mode)mode.innerHTML='<option value="india_gst">India GST</option>';
+});
+
+RBAC_ROLES.finance.description = 'Financial ledgers, India GST settings, sales invoices and return/refund review.';
+for (const row of RBAC_PERMISSION_MATRIX) row.module = row.module.replace('VAT/ZATCA Tax','India GST');
+
+function shareCustomerDocument(){return FMV.guard(async()=>{
+  const file=await FMV.readFile('fmv-share-file');const result=await FMV.request('/admin/documents',{method:'POST',body:{...file,customer_email:FMV.val('fmv-share-email'),title:FMV.val('fmv-share-title'),category:'Shared documents'}});FMV.notice(result.message);document.getElementById('fmv-share-file').value='';
+});}
+document.addEventListener('DOMContentLoaded',()=>{
+  const dashboard=document.getElementById('staff-dashboard');if(!dashboard)return;
+  const panel=document.createElement('section');panel.className='fmv-panel';panel.setAttribute('data-rbac-module','customer_support');panel.innerHTML='<h3>Share a private document with a customer</h3><p class="fmv-small">PDF, PNG, JPEG or UTF-8 text · up to 1.5 MB</p><div class="fmv-flex"><input id="fmv-share-email" class="border rounded-lg p-2" type="email" placeholder="Customer email" aria-label="Customer email"><input id="fmv-share-title" class="border rounded-lg p-2" placeholder="Document title" aria-label="Document title"><input id="fmv-share-file" type="file" accept="application/pdf,image/png,image/jpeg,text/plain" aria-label="Document file"><button class="fmv-btn" onclick="shareCustomerDocument()">Share document</button></div>';dashboard.append(panel);
+});
