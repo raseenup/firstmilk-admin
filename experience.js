@@ -94,15 +94,15 @@
     try{const result=await FMV.request('/admin/pages/'+form.elements.slug.value,{method:'PATCH',body:{title:form.elements.title.value.trim(),body:form.elements.body.value.trim()}});pages[form.elements.slug.value]=result.page;FMV.notice('Company page published.');}catch(error){FMV.notice(error.message,true);}finally{button.disabled=false;}
   }
   async function refresh(){
-    if(!FMV.user)return;
+    if(!FMV.user || !['marketing','invitations'].includes(fmvAdminActiveTab))return;
     // Permission changes are checked from the server, not cached role choices.
     const session=await FMV.request('/auth/session');Object.assign(FMV.user,session.user);syncAdminNavigation();
-    if(mayPublish()){
+    if(fmvAdminActiveTab==='marketing' && mayPublish()){
       await refreshCampaigns();
       const result=await FMV.request('/admin/pages');pages=result.pages;
       if(!document.activeElement?.closest('#fmv-company-page-form'))loadPageForm();
     }
-    if(FMV.user.role==='super_admin')await refreshInvitations();
+    if(fmvAdminActiveTab==='invitations' && FMV.user.role==='super_admin')await refreshInvitations();
   }
 
   async function click(event){
@@ -133,6 +133,7 @@
   document.addEventListener('DOMContentLoaded',build);
   document.addEventListener('fmv:authenticated',()=>FMV.guard(refresh));
   document.addEventListener('fmv:sync',()=>FMV.guard(refresh));
+  document.addEventListener('fmv:admin-tab',()=>FMV.guard(refresh));
   document.addEventListener('fmv:locked',()=>{
     campaigns=[];pages={};editing=null;mediaId='';busy=false;
     for(const id of ['fmv-invitation-form','fmv-campaign-form','fmv-company-page-form'])$(id)?.reset();
