@@ -798,7 +798,7 @@ function handleStaffLogout(){return FMV.logout();}
 function refreshAdmin(){
   if(!FMV.user || FMV.user.portal!=='admin')return;
   return FMV.refresh('admin',()=>FMV.guard(async()=>{
-    const query='?delivery_date='+encodeURIComponent(FMV.val('admin-date-input'))+'&zone_id='+encodeURIComponent(FMV.val('admin-zone-select'));
+    const query='?delivery_date='+encodeURIComponent(FMV.val('admin-date-input'))+'&zone_id='+encodeURIComponent(FMV.val('admin-zone-select'))+'&workforce='+(fmvAdminActiveTab==='workforce');
     const snapshot=await FMV.snapshot(query),jobs=[];
     applyRbacPermissions(FMV.user.role);syncAdminNavigation();
     if(snapshot.products)jobs.push(loadAdminData(snapshot.products));
@@ -838,7 +838,7 @@ async function reassignOrder(id){return FMV.guard(async()=>{
 });}
 async function loadDriversList(){return FMV.guard(async()=>{
   const drivers=await FMV.request('/admin/drivers'),e=FMV.escape;
-  FMV.setHTML('drivers-list-admin',drivers.map(d=>`<div class="fmv-row"><div><strong>${e(d.name)}</strong><p class="fmv-small">${e(d.email || 'Awaiting registration')} · ${e(d.phone)}<br>${e(d.address)}<br>${d.approved?'Approved':'Pending approval'}</p></div><div class="fmv-flex">${!d.approved && d.email?`<button class="fmv-btn" onclick="approveDriver('${e(d.id)}')">Approve</button>`:''}<button class="fmv-btn danger" onclick="deleteDriver('${e(d.id)}')">Remove</button></div></div>`).join('') || FMV.empty('No registered drivers. Drivers can sign up at the driver portal.'));
+  FMV.setHTML('drivers-list-admin',drivers.map(d=>`<div class="fmv-row"><div><strong>${e(d.name)}</strong><p class="fmv-small">${e(d.email || 'Awaiting registration')} · ${e(d.phone)}<br>${e(d.address)}<br>${d.approved?'Approved':'Pending approval'}</p></div><div class="fmv-flex"><button class="fmv-btn secondary" data-admin-work="driver-details" data-id="${e(d.id)}">Performance & documents</button>${!d.approved && d.email?`<button class="fmv-btn" onclick="approveDriver('${e(d.id)}')">Approve</button>`:''}<button class="fmv-btn danger" onclick="deleteDriver('${e(d.id)}')">Remove</button></div></div>`).join('') || FMV.empty('No registered drivers. Drivers can sign up at the driver portal.'));
 });}
 async function approveDriver(id){return FMV.guard(async()=>{const result=await FMV.request('/admin/drivers/'+encodeURIComponent(id)+'/approve',{method:'POST'});FMV.notice(result.message);loadDriversList();});}
 async function deleteDriver(id){if(!confirm('Disable this driver account?'))return;return FMV.guard(async()=>{await FMV.request('/admin/drivers/'+encodeURIComponent(id),{method:'DELETE'});loadDriversList();});}
@@ -914,6 +914,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 // Admin workspace navigation keeps every view subject to the authenticated role.
 const ADMIN_WORKSPACE_TABS = Object.freeze({
   overview: {title:'Workspace overview',description:'Your daily operations, organised in one place.',module:null},
+  workforce: {title:'Driver management',description:'Instructions, earnings, reviewed payouts, performance and delivery routes.',module:'driver_management'},
   catalog: {title:'Catalog & inventory',description:'Fresh products, clear prices and stock you can trust.',module:'catalog_inventory'},
   logistics: {title:'Deliveries & fleet',description:'Coordinate assignments, driver approvals and working time.',module:'operations_logistics'},
   finance: {title:'Finance & reviews',description:'Review paid-order revenue, tax settings and return decisions.',module:'finance_billing'},
@@ -926,6 +927,7 @@ function adminWorkspaceModules(){
   const current=FMV.user;
   if(current?.portal!=='admin')return [];
   const modules=[...(RBAC_ROLES[current.role]?.modules || [])];
+  if(['super_admin','operations_manager','finance'].includes(current.role) || current.driver_manager===true || current.payout_approver===true)modules.push('driver_management');
   if(current.content_editor===true && !modules.includes('content_management'))modules.push('content_management');
   return modules;
 }
