@@ -140,7 +140,7 @@ function authenticateAdmin() {
 }
 
 function applyRbacPermissions(roleKey) {
-  const roleCfg = RBAC_ROLES[roleKey] || RBAC_ROLES.super_admin;
+  const roleCfg = RBAC_ROLES[roleKey] || {label:"Restricted account",description:"No workspace permissions are assigned to this account.",modules:[],canOverride:false};
   const titleEl = document.getElementById("rbac-active-role-title");
   const descEl = document.getElementById("rbac-active-role-desc");
   if (titleEl) titleEl.textContent = roleCfg.label + (roleCfg.canOverride ? " (Global Override Enabled)" : " (Least-Privilege Mode)");
@@ -154,6 +154,7 @@ function applyRbacPermissions(roleKey) {
       el.classList.add("hidden");
     }
   });
+  syncAdminNavigation();
 }
 
 function checkAdminAuth() {
@@ -803,7 +804,7 @@ function checkAdminAuth(){
   document.getElementById('staff-login-section').classList.add('hidden');
   document.getElementById('staff-dashboard').classList.remove('hidden');
   document.getElementById('staff-role-badge').textContent=RBAC_ROLES[u.role]?.label || u.role;
-  applyRbacPermissions(u.role);refreshAdmin();
+  groupAdminPanels();applyRbacPermissions(u.role);refreshAdmin();
 }
 function handleStaffLogout(){return FMV.logout();}
 function refreshAdmin(){
@@ -895,8 +896,8 @@ document.addEventListener('fmv:authenticated',checkAdminAuth);
 document.addEventListener('fmv:sync',refreshAdmin);
 document.addEventListener('DOMContentLoaded',()=>{
   const price=document.getElementById('new-prod-price');if(price){const label=document.createElement('label');label.className='block';label.textContent='Initial available stock';const input=document.createElement('input');input.id='fmv-new-stock';input.type='number';input.min='0';input.step='1';input.value='0';input.className=price.className;label.append(input);price.parentElement.after(label);}
-  const table=document.getElementById('admin-product-table')?.closest('table');if(table){const wrapper=document.createElement('div');wrapper.className='fmv-table-scroll';table.parentElement.insertBefore(wrapper,table);wrapper.append(table);}
-  const dashboard=document.getElementById('staff-dashboard');if(dashboard){const panel=document.createElement('section');panel.className='fmv-panel';panel.setAttribute('data-rbac-module','operations_logistics');panel.innerHTML='<div class="fmv-row"><h3>Driver attendance & fleet alerts</h3><button class="fmv-btn" onclick="exportAttendance()">Monthly hours CSV</button></div><div id="fmv-attendance-list"></div><h3>SOS alerts</h3><div id="fmv-sos-list"></div>';dashboard.append(panel);}
+  const table=document.getElementById('admin-product-table')?.closest('table');if(table){const wrapper=table.parentElement;if(wrapper.id==='fmv-admin-catalog-scroll')wrapper.classList.add('fmv-table-scroll');else{const scroll=document.createElement('div');scroll.className='fmv-table-scroll';table.parentElement.insertBefore(scroll,table);scroll.append(table);}}
+  const dashboard=document.getElementById('staff-dashboard');if(dashboard){const panel=document.createElement('section');panel.className='fmv-panel';panel.setAttribute('data-rbac-module','operations_logistics');panel.setAttribute('data-admin-panel','logistics');panel.innerHTML='<div class="fmv-row"><h3>Driver attendance & fleet alerts</h3><button class="fmv-btn" onclick="exportAttendance()">Monthly hours CSV</button></div><div id="fmv-attendance-list"></div><h3>SOS alerts</h3><div id="fmv-sos-list"></div>';dashboard.append(panel);}
   const mode=document.getElementById('fin-zatca-mode');if(mode)mode.innerHTML='<option value="india_gst">India GST</option>';
 });
 
@@ -908,5 +909,83 @@ function shareCustomerDocument(){return FMV.guard(async()=>{
 });}
 document.addEventListener('DOMContentLoaded',()=>{
   const dashboard=document.getElementById('staff-dashboard');if(!dashboard)return;
-  const panel=document.createElement('section');panel.className='fmv-panel';panel.setAttribute('data-rbac-module','customer_support');panel.innerHTML='<h3>Share a private document with a customer</h3><p class="fmv-small">PDF, PNG, JPEG or UTF-8 text · up to 1.5 MB</p><div class="fmv-flex"><input id="fmv-share-email" class="border rounded-lg p-2" type="email" placeholder="Customer email" aria-label="Customer email"><input id="fmv-share-title" class="border rounded-lg p-2" placeholder="Document title" aria-label="Document title"><input id="fmv-share-file" type="file" accept="application/pdf,image/png,image/jpeg,text/plain" aria-label="Document file"><button class="fmv-btn" onclick="shareCustomerDocument()">Share document</button></div>';dashboard.append(panel);
+  const panel=document.createElement('section');panel.className='fmv-panel';panel.setAttribute('data-rbac-module','customer_support');panel.setAttribute('data-admin-panel','support');panel.innerHTML='<h3>Share a private document with a customer</h3><p class="fmv-small">PDF, PNG, JPEG or UTF-8 text · up to 1.5 MB</p><div class="fmv-flex"><input id="fmv-share-email" class="border rounded-lg p-2" type="email" placeholder="Customer email" aria-label="Customer email"><input id="fmv-share-title" class="border rounded-lg p-2" placeholder="Document title" aria-label="Document title"><input id="fmv-share-file" type="file" accept="application/pdf,image/png,image/jpeg,text/plain" aria-label="Document file"><button class="fmv-btn" onclick="shareCustomerDocument()">Share document</button></div>';dashboard.append(panel);
+});
+
+
+// Admin workspace navigation keeps every view subject to the authenticated role.
+const ADMIN_WORKSPACE_TABS = Object.freeze({
+  overview: {title:'Workspace overview',description:'Your daily operations, organised in one place.',module:null},
+  catalog: {title:'Catalog & inventory',description:'Fresh products, clear prices and stock you can trust.',module:'catalog_inventory'},
+  logistics: {title:'Deliveries & fleet',description:'Coordinate assignments, driver approvals and working time.',module:'operations_logistics'},
+  finance: {title:'Finance & reviews',description:'Review paid-order revenue, tax settings and return decisions.',module:'finance_billing'},
+  support: {title:'Customer care',description:'Helpful conversations, shared documents and customer details.',module:'customer_support'}
+});
+let fmvAdminActiveTab = 'overview';
+function adminWorkspaceModules(){
+  const current=FMV.user;
+  return current?.portal==='admin' ? RBAC_ROLES[current.role]?.modules || [] : [];
+}
+function groupAdminPanels(){
+  const dashboard=document.getElementById('staff-dashboard');if(!dashboard)return;
+  for(const tab of Object.keys(ADMIN_WORKSPACE_TABS)){
+    let group=document.getElementById('fmv-admin-panel-'+tab);
+    if(!group){group=document.createElement('section');group.id='fmv-admin-panel-'+tab;group.className='admin-tab-panel';group.setAttribute('role','region');group.setAttribute('aria-labelledby','fmv-admin-tab-'+tab);dashboard.append(group);}
+    for(const panel of Array.from(dashboard.children)){
+      if(panel.getAttribute('data-admin-panel')===tab)group.append(panel);
+    }
+  }
+}
+function syncAdminNavigation(){
+  const nav=document.getElementById('fmv-admin-nav');if(!nav)return;
+  const authenticated=FMV.user?.portal==='admin';nav.hidden=!authenticated;
+  const modules=adminWorkspaceModules();
+  const available=Object.entries(ADMIN_WORKSPACE_TABS).filter(([key,tab])=>!tab.module || modules.includes(tab.module)).map(([key])=>key);
+  if(!available.includes(fmvAdminActiveTab))fmvAdminActiveTab='overview';
+  for(const button of nav.querySelectorAll('[data-admin-tab]')){
+    const tab=button.dataset.adminTab;button.hidden=!authenticated || !available.includes(tab);button.disabled=button.hidden;
+    if(tab===fmvAdminActiveTab && !button.hidden)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+  }
+  for(const tab of Object.keys(ADMIN_WORKSPACE_TABS)){
+    const panel=document.getElementById('fmv-admin-panel-'+tab);if(panel)panel.hidden=!authenticated || tab!==fmvAdminActiveTab || !available.includes(tab);
+  }
+  const active=ADMIN_WORKSPACE_TABS[fmvAdminActiveTab];
+  document.getElementById('fmv-admin-page-title').textContent=active.title;
+  document.getElementById('fmv-admin-page-description').textContent=active.description;
+}
+function selectAdminTab(tab,options={}){
+  const current=FMV.user,config=ADMIN_WORKSPACE_TABS[tab];
+  if(current?.portal!=='admin' || !config || (config.module && !adminWorkspaceModules().includes(config.module)))return false;
+  fmvAdminActiveTab=tab;groupAdminPanels();syncAdminNavigation();
+  if(options.focus)document.querySelector('#fmv-admin-nav [data-admin-tab="'+tab+'"]').focus();
+  if(options.scroll!==false && typeof window.scrollTo==='function')window.scrollTo({top:0,behavior:'auto'});
+  return true;
+}
+function openRbacMatrixModal(){
+  if(FMV.user?.portal!=='admin'){FMV.showAuth('signin');return;}
+  const modal=document.getElementById('rbac-matrix-modal');if(!modal)return;
+  const e=FMV.escape;
+  document.getElementById('rbac-matrix-table-body').innerHTML=RBAC_PERMISSION_MATRIX.map(row=>'<tr><td>'+e(row.module)+'</td><td>'+e(row.super_admin)+'</td><td>'+e(row.operations_manager)+'</td><td>'+e(row.finance)+'</td><td>'+e(row.customer_support)+'</td></tr>').join('');
+  const inviteBox=document.getElementById('rbac-key-management-box'),isSuper=FMV.user.role==='super_admin';inviteBox.classList.toggle('hidden',!isSuper);
+  if(isSuper)loadRbacRoleKeys();
+  modal.classList.remove('hidden');
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  groupAdminPanels();
+  const nav=document.getElementById('fmv-admin-nav');
+  nav.addEventListener('click',event=>{const button=event.target.closest('[data-admin-tab]');if(button && nav.contains(button))selectAdminTab(button.dataset.adminTab);});
+  nav.addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+    const buttons=Array.from(nav.querySelectorAll('[data-admin-tab]')).filter(button=>!button.hidden && !button.disabled);if(!buttons.length)return;
+    const current=event.target.closest('[data-admin-tab]');let index=buttons.indexOf(current);if(index<0)return;
+    event.preventDefault();
+    if(event.key==='Home')index=0;else if(event.key==='End')index=buttons.length-1;else index=(index+(['ArrowLeft','ArrowUp'].includes(event.key)?-1:1)+buttons.length)%buttons.length;
+    selectAdminTab(buttons[index].dataset.adminTab,{focus:true});
+  });
+  syncAdminNavigation();
+});
+document.addEventListener('fmv:locked',()=>{
+  fmvAdminActiveTab='overview';document.getElementById('fmv-admin-nav').hidden=true;document.getElementById('staff-dashboard').classList.add('hidden');
+  for(const id of ['product-modal','driver-modal','change-key-modal','rbac-matrix-modal','support-ticket-modal'])document.getElementById(id)?.classList.add('hidden');
+  syncAdminNavigation();
 });

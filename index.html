@@ -11,27 +11,27 @@
     <title>First Milk Venture - Category Admin Portal</title>
     <!-- Original Tailwind CDN script retained as a reference; v8 uses local compiled CSS. -->
     <link rel="stylesheet" href="tailwind.css">
+    <link rel="stylesheet" href="design-system.css">
+    <link rel="stylesheet" href="portal-theme.css">
 </head>
 <body data-portal="admin" class="bg-gray-50 font-sans min-h-screen">
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black text-xl">🥛</div>
-                <div>
-                    <h1 class="text-base font-black text-gray-900 tracking-tight">First Milk Venture</h1>
-                    <p class="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Category Admin Portal & Catalog Management</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-3">
-                <span id="staff-role-badge" class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-bold uppercase">Not Authenticated</span>
-                <button onclick="handleStaffLogout()" class="text-xs text-red-600 font-bold hover:underline">Sign Out</button>
+    <!-- Workspace header; account actions remain available on every section. -->
+    <header class="admin-header">
+        <div class="admin-header-inner">
+            <a class="admin-brand" href="index.html" aria-label="First Milk Venture administration home">
+                <span class="admin-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3C9.6 6.6 5.5 10.1 5.5 14.1a6.5 6.5 0 0 0 13 0C18.5 10.1 14.4 6.6 12 3Z" fill="currentColor"/><path d="M8.4 14.4a3.6 3.6 0 0 0 3.6 3.6" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+                <span><strong>First Milk Venture</strong><small>ADMIN WORKSPACE</small></span>
+            </a>
+            <div class="admin-header-actions">
+                <span id="staff-role-badge" class="admin-role-badge">Not authenticated</span>
+                <button class="admin-icon-button" onclick="openRbacMatrixModal()" aria-label="View access permissions and staff invitations" title="Access and staff"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 8 3v5c0 5-4.5 8.5-8 10-3.5-1.5-8-5-8-10V6l8-3Z"/><path d="m8 12 2.5 2.5L16 9"/></svg><span>Access</span></button>
+                <button class="admin-icon-button admin-signout" onclick="handleStaffLogout()" aria-label="Sign out of the admin portal" title="Sign out"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 5H5v14h5M9 12h12m-4-4 4 4-4 4"/></svg><span>Sign out</span></button>
             </div>
         </div>
     </header>
 
     <!-- Main Content Container -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="admin-main max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <!-- Login Card (Shown if not logged in) -->
         <div id="staff-login-section" class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -64,9 +64,17 @@
 
         <!-- Dashboard Workspace (Hidden until logged in) -->
         <div id="staff-dashboard" class="hidden space-y-6">
+            <section class="admin-page-heading" aria-labelledby="fmv-admin-page-title">
+                <div><p class="admin-eyebrow">FIRST MILK / ADMINISTRATION</p><h2 id="fmv-admin-page-title">Workspace overview</h2><p id="fmv-admin-page-description">Your daily operations, organised in one place.</p></div>
+                <span class="admin-workspace-tag"><span aria-hidden="true"></span>Role-based workspace</span>
+            </section>
+            <section class="admin-overview-hero" data-admin-panel="overview">
+                <div><span class="admin-hero-eyebrow">FRESH THINKING. CLEARER OPERATIONS.</span><h2>A clearer view<br>of your day.</h2><p>Care for your catalog, coordinate deliveries and keep every customer conversation moving.</p></div>
+                <div class="admin-hero-art" aria-hidden="true"><div class="admin-art-ring"></div><svg viewBox="0 0 100 110" fill="none"><path d="M38 15h24v13l8 15v47c0 6-5 10-11 10H41c-6 0-11-4-11-10V43l8-15V15Z" fill="#fff"/><path d="M38 15h24v12H38z" fill="#93dbc0"/><path d="M30 57h40v24H30z" fill="#b7e8d4"/><path d="M50 61c-4 6-8 10-8 14a8 8 0 0 0 16 0c0-4-4-8-8-14Z" fill="#087f63"/></svg><span>Thoughtfully managed.<br>Freshly delivered.</span></div>
+            </section>
             
             <!-- RBAC Role Summary & Active Permissions Banner -->
-            <div id="rbac-role-banner" class="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div id="rbac-role-banner" data-admin-panel="overview" class="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                     <div class="flex items-center space-x-2">
                         <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-black uppercase">RBAC Active</span>
@@ -76,42 +84,42 @@
                 </div>
                 <div class="flex items-center space-x-2">
                     <button id="btn-open-rbac-matrix" onclick="openRbacMatrixModal()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors">
-                        🛡️ RBAC Matrix & Role Keys
+                        View access permissions
                     </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="admin-quick-actions grid grid-cols-1 md:grid-cols-4 gap-4" data-admin-panel="overview">
                 <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="catalog_inventory">
-                    <span class="text-xs font-bold text-gray-400 block mb-1">Total Inventory Items</span>
-                    <h3 id="stat-products-count" class="text-2xl font-black text-gray-900">0</h3>
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Catalog items</span>
+                    <h3 id="stat-products-count" class="text-2xl font-black text-gray-900">—</h3>
                 </div>
                 <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
-                    <span class="text-xs font-bold text-gray-400 block mb-1">Automated Dispatch Engine</span>
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Delivery planning</span>
                     <button onclick="triggerDailyDispatches()" class="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-                        ⚡ Run Morning Dispatches
+                        Generate dispatches
                     </button>
                 </div>
                 <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="operations_logistics">
-                    <span class="text-xs font-bold text-gray-400 block mb-1">Manage Drivers & Keys</span>
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Drivers & approvals</span>
                     <button onclick="openDriverModal()" class="mt-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-                        🚚 Driver Keys & Setup
+                        Manage drivers
                     </button>
                 </div>
                 <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm" data-rbac-module="security_roles">
-                    <span class="text-xs font-bold text-gray-400 block mb-1">Change Admin Key</span>
+                    <span class="text-xs font-bold text-gray-400 block mb-1">Account security</span>
                     <button onclick="openChangeKeyModal()" class="mt-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-                        🔑 Update Admin Key
+                        Password help
                     </button>
                 </div>
             </div>
 
             <!-- Delivery Order Reassignment & Route Management -->
-            <div data-rbac-module="operations_logistics" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <div data-rbac-module="operations_logistics" data-admin-panel="logistics" class="admin-module bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div>
-                        <h3 class="font-black text-gray-900 text-base">Delivery Orders & Driver Reassignment</h3>
-                        <p class="text-xs text-gray-500">Admin can change or reassign any delivery order to different drivers anytime.</p>
+                        <h3 class="font-black text-gray-900 text-base">Deliveries & assignments</h3>
+                        <p class="text-xs text-gray-500">Plan the day and assign each order to an approved driver.</p>
                     </div>
                     <div class="flex items-center space-x-3">
                         <select id="admin-zone-select" onchange="loadAdminDeliveries()" class="text-xs border border-gray-300 rounded-xl px-3 py-2 font-bold focus:outline-none">
@@ -126,18 +134,19 @@
                 </div>
             </div>
 
-            <!-- Product Inventory Management -->
-            <div data-rbac-module="catalog_inventory" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <!-- Catalog & inventory -->
+            <div data-rbac-module="catalog_inventory" data-admin-panel="catalog" class="admin-module bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div class="flex justify-between items-center mb-6">
                     <div>
-                        <h3 class="font-black text-gray-900 text-base">Product Inventory Management</h3>
-                        <p class="text-xs text-gray-500">Manage catalog pricing, stock thresholds, and live inventory levels.</p>
+                        <h3 class="font-black text-gray-900 text-base">Catalog & inventory</h3>
+                        <p class="text-xs text-gray-500">Keep products, prices and available stock up to date.</p>
                     </div>
                     <button onclick="openNewProductModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">
                         + Add New Product
                     </button>
                 </div>
-                <div class="overflow-x-auto">
+                <p class="admin-table-hint">Swipe across to view stock and actions <span aria-hidden="true">↔</span></p>
+                <div class="overflow-x-auto" id="fmv-admin-catalog-scroll" tabindex="0" role="region" aria-label="Scrollable product inventory">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-gray-200 text-[11px] font-bold text-gray-400 uppercase">
@@ -157,11 +166,11 @@
 
 
             <!-- Finance Module (Ledgers, Billing, Tax Compliance GST / India, Payouts & Refund Authorizations) -->
-            <div data-rbac-module="finance_billing" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div data-rbac-module="finance_billing" data-admin-panel="finance" class="admin-module bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h3 class="font-black text-gray-900 text-base">Financial Ledgers, Tax Compliance (GST / India) & Refunds</h3>
-                        <p class="text-xs text-gray-500">Controls financial ledgers, billing, GST / India tax compliance, invoicing, payouts, and refund authorizations.</p>
+                        <h3 class="font-black text-gray-900 text-base">Finance & return reviews</h3>
+                        <p class="text-xs text-gray-500">Review paid-order revenue, product tax settings and return decisions.</p>
                     </div>
                     <div class="flex items-center space-x-2">
                         <span id="vat-zatca-badge" class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold">India GST · product-specific rates</span>
@@ -171,29 +180,29 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
                     <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
                         <span class="text-gray-400 font-bold block">Gross Ledger Revenue</span>
-                        <span id="fin-gross-revenue" class="text-lg font-black text-gray-900">₹0.00</span>
+                        <span id="fin-gross-revenue" class="text-lg font-black text-gray-900">—</span>
                     </div>
                     <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
                         <span class="text-gray-400 font-bold block">GST collected from paid orders</span>
-                        <span id="fin-vat-collected" class="text-lg font-black text-emerald-700">₹0.00</span>
+                        <span id="fin-vat-collected" class="text-lg font-black text-emerald-700">—</span>
                     </div>
                     <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
                         <span class="text-gray-400 font-bold block">Driver Payouts Settled</span>
-                        <span id="fin-payouts-settled" class="text-lg font-black text-blue-700">₹0.00</span>
+                        <span id="fin-payouts-settled" class="text-lg font-black text-blue-700">—</span>
                     </div>
                     <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
                         <span class="text-gray-400 font-bold block">Pending Refund Requests</span>
-                        <span id="fin-pending-refunds" class="text-lg font-black text-amber-700">0</span>
+                        <span id="fin-pending-refunds" class="text-lg font-black text-amber-700">—</span>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">GST registration (GSTIN)</label>
-                        <input type="text" id="fin-zatca-tin" value="300123456700003" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
+                        <input type="text" id="fin-zatca-tin" value="" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
                     </div>
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">GST Rate (%)</label>
-                        <input type="number" id="fin-vat-rate" value="15" step="0.5" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
+                        <input type="number" id="fin-vat-rate" value="0" step="0.5" class="w-full px-3 py-2 border border-gray-300 rounded-xl font-mono">
                     </div>
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">India GST E-Invoicing Mode</label>
@@ -209,11 +218,11 @@
             </div>
 
             <!-- Customer Support Module (User Directory, Ticketing & Minor Dispute Escalations) -->
-            <div data-rbac-module="customer_support" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div data-rbac-module="customer_support" data-admin-panel="support" class="admin-module bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h3 class="font-black text-gray-900 text-base">Customer Support Ticketing, User Directory & Dispute Escalations</h3>
-                        <p class="text-xs text-gray-500">Handles user assistance, support ticketing, viewing user directories, and managing minor dispute escalations.</p>
+                        <h3 class="font-black text-gray-900 text-base">Customer care</h3>
+                        <p class="text-xs text-gray-500">Find customer details, follow up on tickets and share helpful documents.</p>
                     </div>
                     <button onclick="openNewTicketModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl">
                         + Log Support Ticket / Dispute
@@ -221,13 +230,13 @@
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
                     <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                        <h4 class="font-black text-gray-800 mb-2">Customer Directory (Read-Only View)</h4>
+                        <h4 class="font-black text-gray-800 mb-2">Customer directory</h4>
                         <div id="support-user-directory" class="space-y-2 max-h-48 overflow-y-auto">
                             Loading customer directory...
                         </div>
                     </div>
                     <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                        <h4 class="font-black text-gray-800 mb-2">Active Support Tickets & Minor Dispute Escalations</h4>
+                        <h4 class="font-black text-gray-800 mb-2">Support tickets</h4>
                         <div id="support-tickets-container" class="space-y-2 max-h-48 overflow-y-auto">
                             Loading support tickets...
                         </div>
@@ -271,22 +280,22 @@
     <!-- Modal: Manage Drivers & Unique Keys -->
     <div id="driver-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-gray-200 space-y-4">
-            <h3 class="font-black text-gray-900 text-base">Delivery Drivers & Unique Access Keys</h3>
-            <p class="text-xs text-gray-500">Create unique access keys for each driver. Drivers log in using their unique secret key.</p>
+            <h3 class="font-black text-gray-900 text-base">Drivers & approvals</h3>
+            <p class="text-xs text-gray-500">Review registered driver applications. New drivers sign up and verify their own email before approval.</p>
             
             <div id="drivers-list-admin" class="space-y-2 max-h-40 overflow-y-auto text-xs border p-3 rounded-xl bg-gray-50">
                 Loading drivers...
             </div>
 
             <div class="border-t pt-3 space-y-2 text-xs">
-                <h4 class="font-bold text-gray-800">Add New Driver</h4>
+                <h4 class="font-bold text-gray-800">Create a driver profile</h4>
                 <div class="grid grid-cols-2 gap-2">
                     <input type="text" id="new-driver-name" placeholder="Driver Full Name" class="px-3 py-2 border rounded-xl">
-                    <input type="text" id="new-driver-key" placeholder="Unique Secret Key" class="px-3 py-2 border rounded-xl font-mono">
+                    <input type="text" id="new-driver-key" placeholder="Driver reference ID" class="px-3 py-2 border rounded-xl font-mono">
                     <input type="text" id="new-driver-phone" placeholder="Phone Number" class="px-3 py-2 border rounded-xl">
                     <input type="text" id="new-driver-address" placeholder="Assigned Zone / Address" class="px-3 py-2 border rounded-xl">
                 </div>
-                <button onclick="createNewDriver()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl">Generate Driver & Unique Key →</button>
+                <button onclick="createNewDriver()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl">Create driver profile</button>
             </div>
 
             <div class="flex justify-end pt-2">
@@ -295,7 +304,7 @@
         </div>
     </div>
 
-    <!-- Modal: Change Admin Key -->
+    <!-- Modal: Account security -->
     <div id="change-key-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-200 space-y-4 text-xs">
             <h3 class="font-black text-gray-900 text-base">Update Admin Access Key</h3>
@@ -317,7 +326,7 @@
         <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-xl border border-gray-200 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
                 <div>
-                    <h3 class="font-black text-gray-900 text-base">Company Admin Portal — Role-Based Access Control (RBAC) Matrix</h3>
+                    <h3 class="font-black text-gray-900 text-base">Workspace access & staff</h3>
                     <p class="text-xs text-gray-500">Granular permissions across functional modules ensuring least-privilege access and operational efficiency.</p>
                 </div>
                 <button onclick="closeRbacMatrixModal()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs">✕ Close</button>
@@ -338,7 +347,7 @@
                 </div>
                 <div class="p-3 rounded-xl border border-gray-200 bg-gray-50">
                     <span class="font-black text-gray-900 block">• Customer Support</span>
-                    <span class="text-gray-600">Handles user assistance, support ticketing, viewing user directories, and managing minor dispute escalations.</span>
+                    <span class="text-gray-600">Find customer details, follow up on tickets and share helpful documents.</span>
                 </div>
             </div>
 
@@ -360,7 +369,7 @@
             </div>
 
             <div id="rbac-key-management-box" class="border-t pt-3 space-y-2 text-xs">
-                <h4 class="font-black text-gray-800">Role Access Keys (Super Admin Only)</h4>
+                <h4 class="font-black text-gray-800">Staff invitations · super admin only</h4>
                 <div id="rbac-role-keys-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
             </div>
         </div>
@@ -392,6 +401,14 @@
             </div>
         </div>
     </div>
+
+    <nav id="fmv-admin-nav" class="admin-bottom-nav" aria-label="Admin workspace navigation" hidden>
+        <button type="button" id="fmv-admin-tab-overview" data-admin-tab="overview" aria-controls="fmv-admin-panel-overview" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10H3V10Z"/><path d="M9 20v-7h6v7"/></svg><span>Overview</span></button>
+        <button type="button" id="fmv-admin-tab-catalog" data-admin-tab="catalog" aria-controls="fmv-admin-panel-catalog"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 7 8-4 8 4v11l-8 4-8-4V7Z"/><path d="m4 7 8 4 8-4M12 11v11M8 5l8 4"/></svg><span>Catalog</span></button>
+        <button type="button" id="fmv-admin-tab-logistics" data-admin-tab="logistics" aria-controls="fmv-admin-panel-logistics"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h11v12H3V6Zm11 5h4l3 4v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Logistics</span></button>
+        <button type="button" id="fmv-admin-tab-finance" data-admin-tab="finance" aria-controls="fmv-admin-panel-finance"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v15H4V5Zm0 4h16M8 13h3m-3 3h3m4-3h2m-2 3h2"/><path d="M8 2v6m8-6v6"/></svg><span>Finance</span></button>
+        <button type="button" id="fmv-admin-tab-support" data-admin-tab="support" aria-controls="fmv-admin-panel-support"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v12H9l-5 4V4Z"/><path d="M8 8h8m-8 4h5"/></svg><span>Support</span></button>
+    </nav>
 
     <script src="admin.js"></script>
 </body>

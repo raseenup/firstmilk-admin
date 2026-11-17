@@ -83,6 +83,13 @@
     return nativeFetch(input,options);
   };
   function gateMessage(message,error=false){const e=document.getElementById('fmv-auth-message');if(e){e.textContent=message;e.classList.toggle('error',error);}}
+  function hideExistingAccount(){const panel=document.getElementById('fmv-existing-account');if(panel)panel.hidden=true;}
+  function showExistingAccount(message){
+    const panel=document.getElementById('fmv-existing-account');
+    if(!panel){gateMessage(message,true);return;}
+    document.getElementById('fmv-existing-account-message').textContent=message;
+    panel.hidden=false;gateMessage('');
+  }
   function clearChallenge(){
     challenge=null;pending=null;challengeClock=null;expiredNotice=false;
     clearInterval(challengeTimer);challengeTimer=null;sessionStorage.removeItem(pendingKey());
@@ -130,6 +137,10 @@
   function setMode(mode){authGeneration++;authMode=mode;clearChallenge();document.getElementById('fmv-auth-form').reset();authFieldsVisible(true);renderAuth();}
   function renderAuth(){
     const signup=authMode==='signup';
+    hideExistingAccount();
+    document.getElementById('fmv-auth-subtitle').textContent=challenge?'One more step to keep your account secure.':signup?'Create your account and start your fresh routine.':'Welcome back. Sign in securely to continue.';
+    document.getElementById('fmv-auth-identifier-label').textContent=signup?'Email address':'Email or mobile';
+    document.getElementById('fmv-password-reset').hidden=signup || !!challenge;
     document.getElementById('fmv-signup-fields').hidden=!signup;
     document.getElementById('fmv-auth-otp-fields').hidden=!challenge;
     document.getElementById('fmv-auth-credentials').hidden=!!challenge;
@@ -172,7 +183,7 @@
         if(generation!==authGeneration)return;
         document.getElementById('fmv-auth-password').value='';useChallenge(result);document.getElementById('fmv-auth-otp').focus();
       }
-    }catch(e){if(generation===authGeneration)gateMessage(e.message,true);}finally{authBusy=false;btn.disabled=false;updateChallengeClock();}
+    }catch(e){if(generation===authGeneration){if(!challenge && authMode==='signup' && e.status===409)showExistingAccount(e.message);else gateMessage(e.message,true);}}finally{authBusy=false;btn.disabled=false;updateChallengeClock();}
   }
   function lock(){
     authGeneration++;sessionStorage.removeItem(tokenKey());clearChallenge();user=null;clearInterval(syncTimer);syncTimer=null;
@@ -307,7 +318,7 @@
   document.addEventListener('DOMContentLoaded',async()=>{
     adoptActions(document.body);
     const gate=document.createElement('section');gate.id='fmv-auth-gate';gate.setAttribute('aria-label','Portal authentication');
-    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India · INR</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><div id="fmv-session-check" hidden><p id="fmv-session-status" role="status">Checking your saved session…</p><button id="fmv-session-retry" type="button" class="fmv-primary" hidden>Retry session check</button><button id="fmv-session-discard" type="button" class="fmv-text-button" hidden>Sign out on this device</button></div><div id="fmv-auth-fields"><p class="fmv-subtitle">Sign in securely to continue</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation<input id="fmv-auth-invitation" type="password" autocomplete="off"></label></div><label>Email or mobile<input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="At least 12 characters, letters and numbers"><small id="fmv-password-help">Use 12–128 characters, including letters and numbers.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div></div>`;
+    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India · INR</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><div id="fmv-session-check" hidden><p id="fmv-session-status" role="status">Checking your saved session…</p><button id="fmv-session-retry" type="button" class="fmv-primary" hidden>Retry session check</button><button id="fmv-session-discard" type="button" class="fmv-text-button" hidden>Sign out on this device</button></div><div id="fmv-auth-fields"><p id="fmv-auth-subtitle" class="fmv-subtitle">Welcome back. Sign in securely to continue.</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation<input id="fmv-auth-invitation" type="password" autocomplete="off"></label></div><label><span id="fmv-auth-identifier-label">Email or mobile</span><input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="At least 12 characters, letters and numbers"><small id="fmv-password-help">Use 12–128 characters, including letters and numbers.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><div id="fmv-existing-account" class="fmv-existing-account" role="alert" hidden><span class="fmv-existing-account-badge">Already registered</span><h2>Welcome back to First Milk</h2><p id="fmv-existing-account-message"></p><button id="fmv-existing-signin" type="button" class="fmv-primary">Sign in instead</button><small>You can reset your password from the sign-in screen.</small></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div></div>`;
     // Choose the loading state before insertion: no sign-in flash while validating.
     gate.querySelector('#fmv-auth-fields').hidden=!!token();
     gate.querySelector('#fmv-session-check').hidden=!token();
@@ -318,11 +329,14 @@
     document.getElementById('fmv-auth-password').addEventListener('invalid',()=>{if(authMode==='signup' && !challenge){const message=signupPasswordMessage(document.getElementById('fmv-auth-password').value);if(message)gateMessage(message,true);}});
     document.getElementById('fmv-tab-signin').addEventListener('click',()=>setMode('signin'));
     document.getElementById('fmv-tab-signup').addEventListener('click',()=>setMode('signup'));
+    document.getElementById('fmv-existing-signin').addEventListener('click',()=>{const identifier=val('fmv-auth-identifier');setMode('signin');document.getElementById('fmv-auth-identifier').value=identifier;document.getElementById('fmv-auth-password').focus();});
+    for(const id of ['fmv-auth-identifier','fmv-auth-phone'])document.getElementById(id).addEventListener('input',hideExistingAccount);
     document.getElementById('fmv-restart').addEventListener('click',()=>setMode(authMode));
     document.getElementById('fmv-resend').addEventListener('click',resendCode);
     document.getElementById('fmv-session-retry').addEventListener('click',restoreSession);
     document.getElementById('fmv-session-discard').addEventListener('click',logout);
     document.getElementById('fmv-password-reset').addEventListener('click',()=>guard(async()=>{
+      if(authMode!=='signin' || challenge || document.getElementById('fmv-auth-fields').hidden || document.getElementById('fmv-auth-gate').hidden)return;
       const email=prompt('Registered email address:');if(!email)return;
       const result=await request('/auth/password-reset/request',{method:'POST',body:{email,portal:portal()}});
       const otp=prompt('Six-digit code from your email:');if(!otp)return;
