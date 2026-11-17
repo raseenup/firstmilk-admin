@@ -89,7 +89,7 @@
   async function snapshot(query=''){
     const epoch=mutationEpoch,data=await request('/portal/snapshot'+query);
     if(epoch!==mutationEpoch)return snapshot(query);
-    if(user){Object.assign(user,data.user);revision=data.revision;}
+    if(user){Object.assign(user,data.user);revision=data.revision;window.FMVWorkspace?.onSnapshot(data);}
     return data;
   }
   function refresh(name,action){
@@ -99,7 +99,7 @@
       .finally(()=>{if(refreshes.get(name)===current)refreshes.delete(name);});
     return current.promise;
   }
-  function scheduleSync(delay=2000){
+  function scheduleSync(delay=1500){
     clearTimeout(syncTimer);if(user && !document.hidden)syncTimer=setTimeout(pollSync,delay);
   }
   async function pollSync(){
@@ -110,7 +110,7 @@
       if(syncFailures)notice('Connection restored. Your records are updating.');syncFailures=0;
       if(revision!==data.revision)document.dispatchEvent(new CustomEvent('fmv:sync')); // Snapshot success acknowledges the revision; failed refreshes retry.
     }catch(error){if(user && !error.stale && !syncFailures++)notice(error.message,true);}
-    scheduleSync(Math.min(15000,2000*Math.max(1,syncFailures)));
+    scheduleSync(Math.min(15000,1500*Math.max(1,syncFailures)));
   }
   // Retained module functions that still call fetch receive the same scoped session.
   window.fetch=(input,options={})=>{
@@ -368,6 +368,7 @@
     const bar=document.createElement('div');bar.id='fmv-session-bar';bar.hidden=true;bar.innerHTML='<span id="fmv-session-name"></span><button type="button" id="fmv-logout">Sign out</button>';document.body.append(bar);
     document.getElementById('fmv-logout').addEventListener('click',logout);
     document.getElementById('fmv-auth-form').addEventListener('submit',submitAuth);
+    document.getElementById('fmv-auth-otp').addEventListener('paste',event=>{const digits=(event.clipboardData?.getData('text') || '').replace(/[^0-9]/g,'');if(digits.length===6){event.preventDefault();event.currentTarget.value=digits;}});
     document.getElementById('fmv-auth-password').addEventListener('invalid',()=>{if(authMode==='signup' && !challenge){const message=signupPasswordMessage(document.getElementById('fmv-auth-password').value);if(message)gateMessage(message,true);}});
     document.getElementById('fmv-tab-signin').addEventListener('click',()=>setMode('signin'));
     document.getElementById('fmv-tab-signup').addEventListener('click',()=>setMode('signup'));
