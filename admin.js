@@ -1,10 +1,11 @@
 const API_BASE_URL = window.FMV.apiBase;
 
 const RBAC_ROLES = {
+  content_manager: {label:"Content Manager",description:"Designated editor for ads, animated menus, offers and company pages.",modules:["content_management"],canOverride:false},
   super_admin: {
     label: "Super Admin",
     description: "Ultimate system authority. Manages global configurations, core security, user roles, system infrastructure, and can override any action.",
-    modules: ["security_roles", "operations_logistics", "catalog_inventory", "finance_billing", "customer_support"],
+    modules: ["security_roles", "operations_logistics", "catalog_inventory", "finance_billing", "customer_support", "content_management"],
     canOverride: true
   },
   operations_manager: {
@@ -120,22 +121,9 @@ function authenticateAdmin() {
       errorBox.classList.remove("hidden");
     }
   }).catch(() => {
-    // Fallback offline verification matching RBAC role keys
-    const fallbackRoleKeys = {
-      super_admin: ["Firstmilk3211234"],
-      operations_manager: ["OpsMgr2026", "Firstmilk3211234"],
-      finance: ["FinanceZATCA2026", "Firstmilk3211234"],
-      customer_support: ["SupportDesk2026", "Firstmilk3211234"]
-    };
-    const allowed = fallbackRoleKeys[selectedRole] || [];
-    if (allowed.includes(key) || (selectedRole === "super_admin" && key.length >= 6)) {
-      localStorage.setItem("admin_key", key);
-      localStorage.setItem("admin_role", selectedRole);
-      checkAdminAuth();
-    } else {
-      errorBox.textContent = "Invalid Access Key for selected role.";
-      errorBox.classList.remove("hidden");
-    }
+    // Shared-key/offline authorization is retired. Use a verified individual session.
+    errorBox.textContent = "The server could not be reached. Retry individual account sign-in with email OTP.";
+    errorBox.classList.remove("hidden");
   });
 }
 
@@ -833,7 +821,7 @@ async function loadAdminDeliveries(){return FMV.guard(async()=>{
   const [orders,drivers]=await Promise.all([FMV.request('/admin/deliveries?delivery_date='+encodeURIComponent(day)+'&zone_id='+encodeURIComponent(zone)),FMV.request('/admin/drivers')]);
   const active=drivers.filter(d=>d.approved && !d.deleted),e=FMV.escape;
   if(document.activeElement?.closest('#admin-deliveries-container'))return;
-  FMV.setHTML('admin-deliveries-container',orders.map(o=>`<div class="fmv-panel"><div class="fmv-row"><strong>${e(o.order_number)}</strong><span>${e(o.status)} · ${FMV.money(o.total_amount)}</span></div><p class="fmv-small">${e(o.customer_name)} · ${e(o.customer_phone)}<br>${e(o.delivery_address)}<br>${e(o.items_summary)}<br>Payment: ${e(o.payment_status)} · Driver: ${e(o.assigned_driver || 'Unassigned')}</p><div class="fmv-flex"><select class="fmv-input" id="assign-select-${e(o.id)}"><option value="">Choose driver</option>${active.map(d=>`<option value="${e(d.id)}" ${o.assigned_driver_id===d.id?'selected':''}>${e(d.name)}</option>`).join('')}</select><button class="fmv-btn" onclick="reassignOrder('${e(o.id)}')">Assign / reassign</button></div></div>`).join('') || FMV.empty('No deliveries for this date and zone.'));
+  FMV.setHTML('admin-deliveries-container',orders.map(o=>`<div class="fmv-panel"><div class="fmv-row"><strong>${e(o.order_number)}</strong><span>${e(o.status)} · ${FMV.money(o.total_amount)}</span></div><p class="fmv-small">${e(o.customer_name)} · ${e(o.customer_phone)}<br>${e(o.delivery_address)}<br>${e(o.items_summary)}<br>Payment: ${e(o.payment_status)} · Driver: ${e(o.assigned_driver || 'Unassigned')}</p><div class="fmv-flex"><select class="fmv-input" id="assign-select-${e(o.id)}"><option value="">Choose driver</option>${active.map(d=>`<option value="${e(d.id)}" ${o.assigned_driver_id===d.id?'selected':''}>${e(d.name)}</option>`).join('')}</select><button class="fmv-btn" onclick="reassignOrder('${e(o.id)}')">Assign / reassign</button></div>${['Assigned','Picked Up','In Transit'].includes(o.status)?`<div class="fmv-flex"><button class="fmv-btn secondary" data-admin-action="dispatch-status" data-id="${e(o.id)}" data-status="Shipped" ${o.status==='In Transit'?'disabled':''}>Mark shipped</button><button class="fmv-btn" data-admin-action="dispatch-status" data-id="${e(o.id)}" data-status="Out for Delivery">Out for delivery</button></div>`:''}</div>`).join('') || FMV.empty('No deliveries for this date and zone.'));
 });}
 async function reassignOrder(id){return FMV.guard(async()=>{
   const driver=FMV.val('assign-select-'+id);if(!driver)throw new Error('Choose an approved driver.');
@@ -919,12 +907,17 @@ const ADMIN_WORKSPACE_TABS = Object.freeze({
   catalog: {title:'Catalog & inventory',description:'Fresh products, clear prices and stock you can trust.',module:'catalog_inventory'},
   logistics: {title:'Deliveries & fleet',description:'Coordinate assignments, driver approvals and working time.',module:'operations_logistics'},
   finance: {title:'Finance & reviews',description:'Review paid-order revenue, tax settings and return decisions.',module:'finance_billing'},
+  marketing: {title:'Ads & offers',description:'Publish banners, animated menus, offers and company posts.',module:'content_management'},
+  invitations: {title:'Administrator invitations',description:'Invite individual staff and designate content editors.',module:'security_roles'},
   support: {title:'Customer care',description:'Helpful conversations, shared documents and customer details.',module:'customer_support'}
 });
 let fmvAdminActiveTab = 'overview';
 function adminWorkspaceModules(){
   const current=FMV.user;
-  return current?.portal==='admin' ? RBAC_ROLES[current.role]?.modules || [] : [];
+  if(current?.portal!=='admin')return [];
+  const modules=[...(RBAC_ROLES[current.role]?.modules || [])];
+  if(current.content_editor===true && !modules.includes('content_management'))modules.push('content_management');
+  return modules;
 }
 function groupAdminPanels(){
   const dashboard=document.getElementById('staff-dashboard');if(!dashboard)return;
