@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://backend.firstmilkventure.com https://api.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://backend.firstmilkventure.com https://api.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; media-src 'self' blob: https://backend.firstmilkventure.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="referrer" content="same-origin">
     <link rel="stylesheet" href="portal.css">
     <script src="config.js"></script>
@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="tailwind.css">
     <link rel="stylesheet" href="design-system.css">
     <link rel="stylesheet" href="portal-theme.css">
+    <link rel="stylesheet" href="experience.css">
 </head>
 <body data-portal="admin" class="bg-gray-50 font-sans min-h-screen">
     <!-- Workspace header; account actions remain available on every section. -->
@@ -411,5 +412,6 @@
     </nav>
 
     <script src="admin.js"></script>
+    <script src="experience.js"></script>
 </body>
 </html>
