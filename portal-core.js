@@ -306,8 +306,51 @@
     });
   }
   function readFile(inputId){return new Promise((resolve,reject)=>{const file=document.getElementById(inputId)?.files?.[0];if(!file){reject(new Error('Choose a file.'));return;}if(file.size>1500000){reject(new Error('Choose a file smaller than 1.5 MB.'));return;}const reader=new FileReader();reader.onerror=()=>reject(new Error('The file could not be read.'));reader.onload=()=>resolve({filename:file.name,mime_type:file.type || 'text/plain',data_base64:String(reader.result).split(',')[1]});reader.readAsDataURL(file);});}
+  async function media(path){
+    if(!/^\/order-chat-media\/CHATFILE-[a-f0-9]+$/.test(path))throw new Error('Invalid attachment link.');
+    const session=token();if(!session)throw new Error('Sign in to view the attachment.');
+    const response=await nativeFetch(apiBase+path,{headers:{Authorization:'Bearer '+session},credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(30000)});
+    if(token()!==session)throw new Error('Session changed.');
+    if(!response.ok){if(response.status===401)lock();throw new Error('This attachment is unavailable or you no longer have access to the order.');}
+    const blob=await response.blob();if(blob.size>1500000 || !/^(image\/jpeg|audio\/(webm|ogg|mp4|mpeg|wav))$/.test(blob.type))throw new Error('Invalid attachment response.');return blob;
+  }
+  function otpDigits(text){
+    const unique=[...new Set(String(text).match(/(?<![0-9])[0-9]{6}(?![0-9])/g) || [])];
+    if(unique.length===1)return unique[0];
+    if(unique.length>1)return '';
+    const grouped=String(text).trim();return /^[0-9\s-]+$/.test(grouped) && grouped.replace(/[^0-9]/g,'').length===6?grouped.replace(/[^0-9]/g,''):'';
+  }
+  function codeInput(input){
+    input.type='text';input.name ||= 'one-time-code';input.autocomplete='one-time-code';input.inputMode='numeric';input.maxLength=6;input.pattern='[0-9]{6}';input.spellcheck=false;input.setAttribute('autocapitalize','off');input.setAttribute('enterkeyhint','done');
+    input.addEventListener('paste',event=>{const digits=otpDigits(event.clipboardData?.getData('text') || '');if(digits){event.preventDefault();input.value=digits;input.dispatchEvent(new Event('input',{bubbles:true}));}});
+  }
+  async function pasteCode(input){
+    if(!navigator.clipboard?.readText){input.focus();notice('Touch and hold the code box, then choose Paste.');return;}
+    try{const digits=otpDigits(await navigator.clipboard.readText());if(!digits)throw new Error();input.value=digits;input.focus();input.dispatchEvent(new Event('input',{bubbles:true}));}
+    catch(error){input.focus();notice('Copy the six-digit code, then touch and hold the code box to paste.',true);}
+  }
+  function resetPassword(){
+    document.getElementById('fmv-reset-dialog')?.remove();
+    const dialog=document.createElement('dialog');dialog.id='fmv-reset-dialog';dialog.className='fmv-work-dialog';dialog.setAttribute('aria-label','Reset password');
+    dialog.innerHTML='<div class="fmv-work-heading"><h2>Reset password</h2><button type="button" class="fmv-btn secondary" data-reset-close>Close</button></div><form class="fmv-work-form"><div data-reset-fields><label>Registered email<input name="email" type="email" autocomplete="username" maxlength="254" required></label></div><p role="alert"></p><button type="submit" class="fmv-btn">Send verification code</button></form>';
+    document.getElementById('fmv-auth-gate').append(dialog);dialog.showModal();dialog.querySelector('[data-reset-close]').addEventListener('click',()=>dialog.close());
+    let resetChallenge='',resetToken='';
+    dialog.querySelector('form').addEventListener('submit',async event=>{
+      event.preventDefault();const form=event.currentTarget,button=form.querySelector('[type=submit]');if(button.disabled)return;button.disabled=true;form.querySelector('[role=alert]').textContent='';
+      try{
+        if(!resetChallenge){const result=await request('/auth/password-reset/request',{method:'POST',body:{email:form.elements.email.value.trim(),portal:portal()}});resetChallenge=result.challenge_id;
+          form.querySelector('[data-reset-fields]').innerHTML='<p>Enter the code from your email. It expires in five minutes.</p><label>Six-digit email code<input name="otp" required></label><button type="button" class="fmv-btn secondary" data-reset-paste>Paste code</button><label>New password<input name="new_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>';
+          codeInput(form.elements.otp);form.querySelector('[data-reset-paste]').addEventListener('click',()=>pasteCode(form.elements.otp));button.textContent='Verify & change password';form.elements.otp.focus();
+        }else{const password=form.elements.new_password.value,message=signupPasswordMessage(password);if(message)throw new Error(message);
+          if(!resetToken){const verified=await request('/auth/verify-otp',{method:'POST',body:{challenge_id:resetChallenge,otp:form.elements.otp.value}});resetToken=verified.reset_token;}
+          await request('/auth/password-reset/confirm',{method:'POST',body:{reset_token:resetToken,new_password:password}});dialog.close();dialog.remove();gateMessage('Password changed. Sign in with your new password.');
+        }
+      }catch(error){form.querySelector('[role=alert]').textContent=error.message;}finally{button.disabled=false;}
+    });
+    dialog.addEventListener('close',()=>{resetChallenge='';resetToken='';dialog.remove();},{once:true});
+  }
   function empty(message='No records yet.'){return '<p class="fmv-empty">'+escape(message)+'</p>';}
-  window.FMV={apiBase,request,snapshot,refresh,escape,val,money,setHTML,notice,guard,download,pay,empty,logout,lock,readFile,
+  window.FMV={apiBase,request,snapshot,refresh,escape,val,money,setHTML,notice,guard,download,pay,empty,logout,lock,readFile,media,otpDigits,
     showAuth:mode=>{lock();setMode(mode || 'signin');},get user(){return user;},get token(){return token();},get portal(){return portal();}};
   // Preserve the original event attributes in source, but execute only named, trusted
   // application actions through listeners. No eval, Function constructor or inline
@@ -368,7 +411,8 @@
     const bar=document.createElement('div');bar.id='fmv-session-bar';bar.hidden=true;bar.innerHTML='<span id="fmv-session-name"></span><button type="button" id="fmv-logout">Sign out</button>';document.body.append(bar);
     document.getElementById('fmv-logout').addEventListener('click',logout);
     document.getElementById('fmv-auth-form').addEventListener('submit',submitAuth);
-    document.getElementById('fmv-auth-otp').addEventListener('paste',event=>{const digits=(event.clipboardData?.getData('text') || '').replace(/[^0-9]/g,'');if(digits.length===6){event.preventDefault();event.currentTarget.value=digits;}});
+    codeInput(document.getElementById('fmv-auth-otp'));
+    const paste=document.createElement('button');paste.type='button';paste.className='fmv-btn secondary';paste.id='fmv-paste-code';paste.textContent='Paste code';paste.addEventListener('click',()=>pasteCode(document.getElementById('fmv-auth-otp')));document.getElementById('fmv-resend').before(paste);
     document.getElementById('fmv-auth-password').addEventListener('invalid',()=>{if(authMode==='signup' && !challenge){const message=signupPasswordMessage(document.getElementById('fmv-auth-password').value);if(message)gateMessage(message,true);}});
     document.getElementById('fmv-tab-signin').addEventListener('click',()=>setMode('signin'));
     document.getElementById('fmv-tab-signup').addEventListener('click',()=>setMode('signup'));
@@ -381,12 +425,7 @@
     document.getElementById('fmv-session-discard').addEventListener('click',logout);
     document.getElementById('fmv-password-reset').addEventListener('click',()=>guard(async()=>{
       if(authMode!=='signin' || challenge || document.getElementById('fmv-auth-fields').hidden || document.getElementById('fmv-auth-gate').hidden)return;
-      const email=prompt('Registered email address:');if(!email)return;
-      const result=await request('/auth/password-reset/request',{method:'POST',body:{email,portal:portal()}});
-      const otp=prompt('Six-digit code from your email:');if(!otp)return;
-      const verified=await request('/auth/verify-otp',{method:'POST',body:{challenge_id:result.challenge_id,otp}});
-      const password=prompt('New password (12–128 characters with letters and numbers):');if(!password)return;
-      await request('/auth/password-reset/confirm',{method:'POST',body:{reset_token:verified.reset_token,new_password:password}});gateMessage('Password changed. Sign in with your new password.');
+      resetPassword();
     }));
     for(const evt of ['pointerdown','keydown','touchstart'])document.addEventListener(evt,()=>lastActivity=Date.now(),{passive:true});
     const refreshCountdown=()=>{
