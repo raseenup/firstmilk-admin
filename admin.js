@@ -796,29 +796,37 @@ function checkAdminAuth(){
 }
 function handleStaffLogout(){return FMV.logout();}
 function refreshAdmin(){
-  const role=FMV.user?.role;if(!role)return;
-  const modules=RBAC_ROLES[role]?.modules || [];
-  if(modules.includes('catalog_inventory'))loadAdminData();
-  if(modules.includes('operations_logistics')){loadAdminDeliveries();loadAdminAttendance();}
-  if(modules.includes('finance_billing'))loadFinanceModule();
-  if(modules.includes('customer_support'))loadSupportModule();
+  if(!FMV.user || FMV.user.portal!=='admin')return;
+  return FMV.refresh('admin',()=>FMV.guard(async()=>{
+    const query='?delivery_date='+encodeURIComponent(FMV.val('admin-date-input'))+'&zone_id='+encodeURIComponent(FMV.val('admin-zone-select'));
+    const snapshot=await FMV.snapshot(query),jobs=[];
+    applyRbacPermissions(FMV.user.role);syncAdminNavigation();
+    if(snapshot.products)jobs.push(loadAdminData(snapshot.products));
+    if(snapshot.orders)jobs.push(loadAdminDeliveries(snapshot));
+    if(snapshot.attendance)jobs.push(loadAdminAttendance(snapshot));
+    if(snapshot.finance)jobs.push(loadFinanceModule(snapshot.finance));
+    if(snapshot.users)jobs.push(loadSupportModule(snapshot));
+    window.FMVOperations?.renderOrderCount(snapshot.order_summary);
+    await Promise.all(jobs);
+  }));
 }
-async function loadAdminData(){return FMV.guard(async()=>{
-  const products=await FMV.request('/products');fmvAdminProducts=new Map(products.map(p=>[p.id,p]));
+async function loadAdminData(supplied){return FMV.guard(async()=>{
+  const products=Array.isArray(supplied)?supplied:await FMV.request('/products');fmvAdminProducts=new Map(products.map(p=>[p.id,p]));
   document.getElementById('stat-products-count').textContent=products.length;
   if(document.activeElement?.closest('#admin-product-table'))return;
   const e=FMV.escape;
-  FMV.setHTML('admin-product-table',products.map(p=>`<tr><td class="py-3"><strong>${e(p.name)}</strong><small class="block">${e(p.description)}</small></td><td>${e(p.unit)}</td><td><input aria-label="Price for ${e(p.name)}" class="fmv-input" type="number" min="0" step="0.01" id="fmv-price-${e(p.id)}" value="${Number(p.price)}"><small class="block">INR · GST <input class="fmv-input" aria-label="GST rate" type="number" min="0" max="100" step="0.01" id="fmv-tax-${e(p.id)}" value="${Number(p.tax_rate || 0)}">%</small></td><td><strong>${Number(p.stock_quantity)} available</strong><div class="fmv-flex"><input aria-label="Stock for ${e(p.name)}" class="fmv-input" type="number" min="0" step="1" id="admin-stock-qty-${e(p.id)}" value="${Number(p.stock_quantity)}"><button class="fmv-btn" onclick="updateProductStockQty('${e(p.id)}')">Save stock & price</button></div></td><td><button class="fmv-btn danger" onclick="deleteProduct('${e(p.id)}')">Delete</button></td></tr>`).join('') || '<tr><td colspan="5">No products. Add the first product.</td></tr>');
+  FMV.setHTML('admin-product-table',products.map(p=>`<tr><td class="py-3">${window.FMVOperations?.productImage(p) || ''}<strong>${e(p.name)}</strong><small class="block">${e(p.description)}</small></td><td>${e(p.unit)}</td><td><input aria-label="Price for ${e(p.name)}" class="fmv-input" type="number" min="0" step="0.01" id="fmv-price-${e(p.id)}" value="${Number(p.price)}"><small class="block">INR · GST <input class="fmv-input" aria-label="GST rate" type="number" min="0" max="100" step="0.01" id="fmv-tax-${e(p.id)}" value="${Number(p.tax_rate || 0)}">%</small></td><td><strong>${Number(p.stock_quantity)} available</strong><div class="fmv-flex"><input aria-label="Stock for ${e(p.name)}" class="fmv-input" type="number" min="0" step="1" id="admin-stock-qty-${e(p.id)}" data-version="${Number(p.version)}" value="${Number(p.stock_quantity)}"><button class="fmv-btn" onclick="updateProductStockQty('${e(p.id)}')">Save stock & price</button></div></td><td><button class="fmv-btn secondary" data-operation="edit-product" data-id="${e(p.id)}">Edit details & image</button><button class="fmv-btn danger" onclick="deleteProduct('${e(p.id)}')">Delete</button></td></tr>`).join('') || '<tr><td colspan="5">No products. Add the first product.</td></tr>');
 });}
 async function updateProductStockQty(id){return FMV.guard(async()=>{
   const stock=Number(FMV.val('admin-stock-qty-'+id)),price=Number(FMV.val('fmv-price-'+id)),tax=Number(FMV.val('fmv-tax-'+id));
   if(!Number.isInteger(stock)||stock<0||!Number.isFinite(price)||price<0||!Number.isFinite(tax)||tax<0||tax>100)throw new Error('Enter valid stock, price and GST rate.');
-  await FMV.request('/admin/products/'+encodeURIComponent(id)+'/stock',{method:'PATCH',body:{stock_quantity:stock,price,tax_rate:tax,version:fmvAdminProducts.get(id)?.version}});
+  await FMV.request('/admin/products/'+encodeURIComponent(id)+'/stock',{method:'PATCH',body:{stock_quantity:stock,price,tax_rate:tax,version:Number(document.getElementById('admin-stock-qty-'+id).dataset.version)}});
   FMV.notice('Stock, price and GST rate saved.');document.activeElement?.blur();await loadAdminData();
 });}
-async function loadAdminDeliveries(){return FMV.guard(async()=>{
+async function loadAdminDeliveries(supplied){return FMV.guard(async()=>{
   const day=FMV.val('admin-date-input'),zone=FMV.val('admin-zone-select');
-  const [orders,drivers]=await Promise.all([FMV.request('/admin/deliveries?delivery_date='+encodeURIComponent(day)+'&zone_id='+encodeURIComponent(zone)),FMV.request('/admin/drivers')]);
+  const [orders,drivers]=supplied?[supplied.orders,supplied.drivers]:await Promise.all([FMV.request('/admin/deliveries?delivery_date='+encodeURIComponent(day)+'&zone_id='+encodeURIComponent(zone)),FMV.request('/admin/drivers')]);
+  if(window.FMVOperations){FMVOperations.renderDeliveries(orders,drivers);return;}
   const active=drivers.filter(d=>d.approved && !d.deleted),e=FMV.escape;
   if(document.activeElement?.closest('#admin-deliveries-container'))return;
   FMV.setHTML('admin-deliveries-container',orders.map(o=>`<div class="fmv-panel"><div class="fmv-row"><strong>${e(o.order_number)}</strong><span>${e(o.status)} · ${FMV.money(o.total_amount)}</span></div><p class="fmv-small">${e(o.customer_name)} · ${e(o.customer_phone)}<br>${e(o.delivery_address)}<br>${e(o.items_summary)}<br>Payment: ${e(o.payment_status)} · Driver: ${e(o.assigned_driver || 'Unassigned')}</p><div class="fmv-flex"><select class="fmv-input" id="assign-select-${e(o.id)}"><option value="">Choose driver</option>${active.map(d=>`<option value="${e(d.id)}" ${o.assigned_driver_id===d.id?'selected':''}>${e(d.name)}</option>`).join('')}</select><button class="fmv-btn" onclick="reassignOrder('${e(o.id)}')">Assign / reassign</button></div>${['Assigned','Picked Up','In Transit'].includes(o.status)?`<div class="fmv-flex"><button class="fmv-btn secondary" data-admin-action="dispatch-status" data-id="${e(o.id)}" data-status="Shipped" ${o.status==='In Transit'?'disabled':''}>Mark shipped</button><button class="fmv-btn" data-admin-action="dispatch-status" data-id="${e(o.id)}" data-status="Out for Delivery">Out for delivery</button></div>`:''}</div>`).join('') || FMV.empty('No deliveries for this date and zone.'));
@@ -832,7 +840,7 @@ async function loadDriversList(){return FMV.guard(async()=>{
   const drivers=await FMV.request('/admin/drivers'),e=FMV.escape;
   FMV.setHTML('drivers-list-admin',drivers.map(d=>`<div class="fmv-row"><div><strong>${e(d.name)}</strong><p class="fmv-small">${e(d.email || 'Awaiting registration')} · ${e(d.phone)}<br>${e(d.address)}<br>${d.approved?'Approved':'Pending approval'}</p></div><div class="fmv-flex">${!d.approved && d.email?`<button class="fmv-btn" onclick="approveDriver('${e(d.id)}')">Approve</button>`:''}<button class="fmv-btn danger" onclick="deleteDriver('${e(d.id)}')">Remove</button></div></div>`).join('') || FMV.empty('No registered drivers. Drivers can sign up at the driver portal.'));
 });}
-async function approveDriver(id){return FMV.guard(async()=>{await FMV.request('/admin/drivers/'+encodeURIComponent(id)+'/approve',{method:'POST'});FMV.notice('Driver approved.');loadDriversList();});}
+async function approveDriver(id){return FMV.guard(async()=>{const result=await FMV.request('/admin/drivers/'+encodeURIComponent(id)+'/approve',{method:'POST'});FMV.notice(result.message);loadDriversList();});}
 async function deleteDriver(id){if(!confirm('Disable this driver account?'))return;return FMV.guard(async()=>{await FMV.request('/admin/drivers/'+encodeURIComponent(id),{method:'DELETE'});loadDriversList();});}
 async function createNewDriver(){return FMV.guard(async()=>{
   const body={driver_key:FMV.val('new-driver-key'),name:FMV.val('new-driver-name'),phone:FMV.val('new-driver-phone'),address:FMV.val('new-driver-address')};
@@ -841,6 +849,7 @@ async function createNewDriver(){return FMV.guard(async()=>{
 async function submitNewProduct(){return FMV.guard(async()=>{
   const body={name:FMV.val('new-prod-name'),description:FMV.val('new-prod-desc'),price:Number(FMV.val('new-prod-price')),unit:FMV.val('new-prod-unit'),stock_quantity:Number(FMV.val('fmv-new-stock') || '0'),min_stock_threshold:20,image_url:''};
   if(!Number.isInteger(body.stock_quantity)||body.stock_quantity<0)throw new Error('Stock must be a non-negative integer.');
+  const media=await window.FMVOperations?.newProductMedia();if(media)body.image_url=media.url;
   await FMV.request('/admin/products',{method:'POST',body});closeNewProductModal();FMV.notice('Product created.');await loadAdminData();
 });}
 async function deleteProduct(id){if(!confirm('Remove this product from the active catalog?'))return;return FMV.guard(async()=>{await FMV.request('/admin/products/'+encodeURIComponent(id),{method:'DELETE'});loadAdminData();});}
@@ -857,25 +866,26 @@ async function inviteAdministrator(){return FMV.guard(async()=>{
 function openChangeKeyModal(){FMV.notice('Use Forgot password on the sign-in screen to change your individual password. Shared keys are disabled.');}
 function submitNewAdminKey(){openChangeKeyModal();}
 function rotateRoleKey(){openChangeKeyModal();}
-async function loadFinanceModule(){return FMV.guard(async()=>{
-  const result=await FMV.request('/admin/finance/overview'),l=result.ledger,t=result.tax_compliance,e=FMV.escape;
+async function loadFinanceModule(supplied){return FMV.guard(async()=>{
+  const result=supplied || await FMV.request('/admin/finance/overview'),l=result.ledger,t=result.tax_compliance,e=FMV.escape;
   for(const [id,value] of [['fin-gross-revenue',l.gross_revenue],['fin-vat-collected',l.vat_collected],['fin-payouts-settled',l.driver_payouts]]){const el=document.getElementById(id);if(el)el.textContent=FMV.money(value);}
-  document.getElementById('fin-zatca-tin').value=t.gstin || '';document.getElementById('fin-vat-rate').value=t.vat_rate;
+  if(document.activeElement!==document.getElementById('fin-zatca-tin'))document.getElementById('fin-zatca-tin').value=t.gstin || '';if(document.activeElement!==document.getElementById('fin-vat-rate'))document.getElementById('fin-vat-rate').value=t.vat_rate;
+  window.FMVOperations?.renderCash(result.driver_cash || []);
   document.getElementById('vat-zatca-badge').textContent='India GST · INR';
   document.getElementById('fin-pending-refunds').textContent=result.refund_requests.filter(c=>c.status==='under_review').length;
   FMV.setHTML('finance-refunds-list',result.refund_requests.map(c=>`<div class="fmv-row"><div><strong>${e(c.id)}</strong><p class="fmv-small">${e(c.order_id)} · ${e(c.reason)}<br>${FMV.money(c.amount)} · ${e(c.status)}</p></div>${c.status==='under_review'?`<div class="fmv-flex"><button class="fmv-btn" onclick="authorizeRefund('${e(c.id)}','approved')">Approve review</button><button class="fmv-btn danger" onclick="authorizeRefund('${e(c.id)}','rejected')">Reject</button></div>`:''}</div>`).join('') || FMV.empty('No return or refund claims.'));
 });}
 async function saveTaxComplianceConfig(){return FMV.guard(async()=>{const result=await FMV.request('/admin/finance/tax-config',{method:'PATCH',body:{zatca_tin:FMV.val('fin-zatca-tin'),vat_rate:Number(FMV.val('fin-vat-rate')),zatca_mode:'india_gst'}});FMV.notice(result.message);loadFinanceModule();});}
 async function authorizeRefund(id,status){return FMV.guard(async()=>{const result=await FMV.request('/admin/finance/refunds/'+encodeURIComponent(id),{method:'PATCH',body:{status}});FMV.notice(result.message);loadFinanceModule();});}
-async function loadSupportModule(){return FMV.guard(async()=>{
-  const [users,tickets]=await Promise.all([FMV.request('/admin/support/users'),FMV.request('/admin/support/tickets')]),e=FMV.escape;
+async function loadSupportModule(supplied){return FMV.guard(async()=>{
+  const [users,tickets]=supplied?[supplied.users,supplied.tickets]:await Promise.all([FMV.request('/admin/support/users'),FMV.request('/admin/support/tickets')]),e=FMV.escape;
   FMV.setHTML('support-user-directory',users.users.map(u=>`<div class="fmv-row"><div><strong>${e(u.full_name)}</strong><p class="fmv-small">${e(u.email)} · ${e(u.phone)}<br>${e(u.address)}</p></div></div>`).join('') || FMV.empty('No customer accounts yet.'));
   FMV.setHTML('support-tickets-container',tickets.tickets.map(t=>`<div class="fmv-row"><div><strong>${e(t.subject || t.summary)}</strong><p class="fmv-small">${e(t.customer_email)} · ${e(t.category)} · ${e(t.status)}<br>${e(t.description)}</p></div>${t.status!=='resolved'?`<button class="fmv-btn" onclick="resolveSupportTicket('${e(t.id)}')">Resolve</button>`:''}</div>`).join('') || FMV.empty('No tickets.'));
 });}
 async function submitSupportTicket(){return FMV.guard(async()=>{await FMV.request('/admin/support/tickets',{method:'POST',body:{customer_email:FMV.val('ticket-customer-email'),category:FMV.val('ticket-category'),summary:FMV.val('ticket-summary')}});closeNewTicketModal();FMV.notice('Ticket saved.');loadSupportModule();});}
 async function resolveSupportTicket(id){return FMV.guard(async()=>{await FMV.request('/admin/support/tickets/'+encodeURIComponent(id),{method:'PATCH',body:{status:'resolved'}});loadSupportModule();});}
-async function loadAdminAttendance(){return FMV.guard(async()=>{
-  const [a,sos]=await Promise.all([FMV.request('/admin/attendance'),FMV.request('/admin/sos')]),e=FMV.escape;
+async function loadAdminAttendance(supplied){return FMV.guard(async()=>{
+  const [a,sos]=supplied?[supplied.attendance,supplied.sos]:await Promise.all([FMV.request('/admin/attendance'),FMV.request('/admin/sos')]),e=FMV.escape;
   FMV.setHTML('fmv-attendance-list',a.shifts.slice().reverse().map(sh=>`<div class="fmv-row"><div><strong>${e(sh.driver_name)}</strong><p class="fmv-small">${e(sh.clock_in)} · ${e(sh.status)}<br>${(sh.work_seconds/3600).toFixed(2)} work hours · ${(sh.break_duration_seconds/60).toFixed(0)} break minutes</p></div></div>`).join('') || FMV.empty('No attendance yet.'));
   FMV.setHTML('fmv-sos-list',sos.alerts.map(a=>`<div class="fmv-row"><div><strong>SOS · ${e(a.driver_name)}</strong><p class="fmv-small">${e(a.message)}<br>${e(a.created_at)}</p></div></div>`).join('') || FMV.empty('No SOS alerts.'));
 });}
@@ -950,6 +960,7 @@ function selectAdminTab(tab,options={}){
   const current=FMV.user,config=ADMIN_WORKSPACE_TABS[tab];
   if(current?.portal!=='admin' || !config || (config.module && !adminWorkspaceModules().includes(config.module)))return false;
   fmvAdminActiveTab=tab;groupAdminPanels();syncAdminNavigation();
+  document.dispatchEvent(new CustomEvent('fmv:admin-tab',{detail:tab}));
   if(options.focus)document.querySelector('#fmv-admin-nav [data-admin-tab="'+tab+'"]').focus();
   if(options.scroll!==false && typeof window.scrollTo==='function')window.scrollTo({top:0,behavior:'auto'});
   return true;

@@ -12,3 +12,6 @@ body[data-portal=driver]>nav:not(#fmv-driver-nav){position:sticky!important;top:
 
 /* Administrator invitation entry is visible on the welcome screen. */
 .fmv-invitation-help{padding:16px;background:#edf6ef;border:1px solid #d8e7dc;border-radius:14px;margin:16px 0}.fmv-invitation-help p,.fmv-invitation-help small{font-size:13px;line-height:1.6;display:block}.fmv-invitation-help button{padding-left:0;text-align:left}
+
+/* Driver application acknowledgement remains visible on the entry screen. */
+.fmv-success-banner{padding:20px;border:1px solid #9ccfb5;border-radius:16px;background:#e7f6ec;color:#16543e;margin:18px 0;line-height:1.6}.fmv-success-banner strong{display:block;font-size:18px}.fmv-success-banner p{margin:8px 0 0}
