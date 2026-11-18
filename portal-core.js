@@ -14,8 +14,17 @@
   let authGeneration = 0, restoreBusy = false, hiddenAt = null;
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const val = id => document.getElementById(id)?.value?.trim() || '';
-  const money = amount => new Intl.NumberFormat('en-IN', {style:'currency',currency:'INR'}).format(Number(amount || 0));
-  const setHTML = (id, html) => {const el=document.getElementById(id);if(el) el.innerHTML=html;};
+  const moneyFormat = new Intl.NumberFormat('en-IN', {style:'currency',currency:'INR'});
+  const money = amount => moneyFormat.format(Number(amount || 0));
+  let rendered = new WeakMap();
+  function setHTML(id,html,force=false){
+    const el=document.getElementById(id);if(!el)return;
+    const previous=rendered.get(el);
+    // Preserve focus, quantity choices, open details and media on unchanged data.
+    if(!force && previous && previous.html===html && previous.first===el.firstChild && previous.last===el.lastChild && previous.count===el.childNodes.length)return;
+    el.innerHTML=html;
+    rendered.set(el,{html,first:el.firstChild,last:el.lastChild,count:el.childNodes.length});
+  }
   function notice(message, error=false) {
     let el=document.getElementById('fmv-notice');
     if(!el){el=document.createElement('div');el.id='fmv-notice';el.setAttribute('role','status');document.body.append(el);}
@@ -82,7 +91,8 @@
   function request(path,options={}){
     const method=(options.method || 'GET').toUpperCase();
     if(method!=='GET' || options.signal)return rawRequest(path,options);
-    const key=token()+':'+path;
+    // Never share a pre-mutation read or a differently shaped request.
+    const key=JSON.stringify([token(),mutationEpoch,path,[...new Headers(options.headers || {}).entries()]]);
     if(!reads.has(key))reads.set(key,rawRequest(path,options).finally(()=>reads.delete(key)));
     return reads.get(key);
   }
@@ -99,18 +109,19 @@
       .finally(()=>{if(refreshes.get(name)===current)refreshes.delete(name);});
     return current.promise;
   }
-  function scheduleSync(delay=1500){
-    clearTimeout(syncTimer);if(user && !document.hidden)syncTimer=setTimeout(pollSync,delay);
+  function scheduleSync(delay=1000){
+    clearTimeout(syncTimer);if(user && !document.hidden && navigator.onLine!==false)syncTimer=setTimeout(pollSync,delay);
   }
   async function pollSync(){
-    if(!user || document.hidden)return;
+    if(!user || document.hidden || navigator.onLine===false)return;
+    const syncToken=token();
     if(Date.now()-lastActivity>30*60*1000){await logout();return;}
     try{
       const data=await request('/sync');
       if(syncFailures)notice('Connection restored. Your records are updating.');syncFailures=0;
       if(revision!==data.revision)document.dispatchEvent(new CustomEvent('fmv:sync')); // Snapshot success acknowledges the revision; failed refreshes retry.
     }catch(error){if(user && !error.stale && !syncFailures++)notice(error.message,true);}
-    scheduleSync(Math.min(15000,1500*Math.max(1,syncFailures)));
+    if(user && token()===syncToken)scheduleSync(syncFailures?Math.min(30000,1000*2**Math.min(syncFailures,5)):1000);
   }
   // Retained module functions that still call fetch receive the same scoped session.
   window.fetch=(input,options={})=>{
@@ -231,7 +242,7 @@
     }catch(e){if(generation===authGeneration){if(!challenge && authMode==='signup' && e.status===409)showExistingAccount(e.message);else gateMessage(e.message,true);}}finally{authBusy=false;btn.disabled=false;updateChallengeClock();}
   }
   function lock(){
-    authGeneration++;sessionStorage.removeItem(tokenKey());clearChallenge();user=null;clearTimeout(syncTimer);syncTimer=null;clearTimeout(changeTimer);reads.clear();refreshes.clear();revision=null;
+    authGeneration++;sessionStorage.removeItem(tokenKey());clearChallenge();user=null;clearTimeout(syncTimer);syncTimer=null;clearTimeout(changeTimer);reads.clear();refreshes.clear();rendered=new WeakMap();revision=null;
     document.documentElement.classList.add('fmv-locked');
     document.getElementById('fmv-auth-gate')?.removeAttribute('hidden');
     if(document.getElementById('fmv-session-bar'))document.getElementById('fmv-session-bar').hidden=true;
@@ -403,7 +414,7 @@
   document.addEventListener('DOMContentLoaded',async()=>{
     adoptActions(document.body);
     const gate=document.createElement('section');gate.id='fmv-auth-gate';gate.setAttribute('aria-label','Portal authentication');
-    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India · INR</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><div id="fmv-session-check" hidden><p id="fmv-session-status" role="status">Checking your saved session…</p><button id="fmv-session-retry" type="button" class="fmv-primary" hidden>Retry session check</button><button id="fmv-session-discard" type="button" class="fmv-text-button" hidden>Sign out on this device</button></div><div id="fmv-auth-fields"><p id="fmv-auth-subtitle" class="fmv-subtitle">Welcome back. Sign in securely to continue.</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><aside id="fmv-admin-invitation-help" class="fmv-invitation-help" hidden><strong>Joining as an administrator?</strong><p>Choose Sign up and enter the private invitation code issued for your email address.</p><button type="button" id="fmv-accept-invitation" class="fmv-text-button">Accept administrator invitation →</button><small>Need the first administrator account? The backend owner creates your invitation with manage.py.</small></aside><section id="fmv-driver-submitted" class="fmv-success-banner" role="status" tabindex="-1" hidden><strong>Application submitted successfully</strong><p id="fmv-driver-submitted-message">You will receive an email notification once your driver profile has been approved.</p></section><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation code<input id="fmv-auth-invitation" type="password" maxlength="200" autocomplete="off" placeholder="Paste your private invitation code"><small>Use the exact email address named in the invitation. Codes expire after 24 hours.</small></label></div><label><span id="fmv-auth-identifier-label">Email or mobile</span><input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="At least 12 characters, letters and numbers"><small id="fmv-password-help">Use 12–128 characters, including letters and numbers.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><div id="fmv-existing-account" class="fmv-existing-account" role="alert" hidden><span class="fmv-existing-account-badge">Already registered</span><h2>Welcome back to First Milk</h2><p id="fmv-existing-account-message"></p><button id="fmv-existing-signin" type="button" class="fmv-primary">Sign in instead</button><small>You can reset your password from the sign-in screen.</small></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div></div>`;
+    gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand">FIRST MILK VENTURE</div><p class="fmv-eyebrow">Kerala, India</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><div id="fmv-session-check" hidden><p id="fmv-session-status" role="status">Checking your saved session…</p><button id="fmv-session-retry" type="button" class="fmv-primary" hidden>Retry session check</button><button id="fmv-session-discard" type="button" class="fmv-text-button" hidden>Sign out on this device</button></div><div id="fmv-auth-fields"><p id="fmv-auth-subtitle" class="fmv-subtitle">Welcome back. Sign in securely to continue.</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><aside id="fmv-admin-invitation-help" class="fmv-invitation-help" hidden><strong>Joining as an administrator?</strong><p>Choose Sign up and enter the private invitation code issued for your email address.</p><button type="button" id="fmv-accept-invitation" class="fmv-text-button">Accept administrator invitation →</button><small>Need the first administrator account? The backend owner creates your invitation with manage.py.</small></aside><section id="fmv-driver-submitted" class="fmv-success-banner" role="status" tabindex="-1" hidden><strong>Application submitted successfully</strong><p id="fmv-driver-submitted-message">You will receive an email notification once your driver profile has been approved.</p></section><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation code<input id="fmv-auth-invitation" type="password" maxlength="200" autocomplete="off" placeholder="Paste your private invitation code"><small>Use the exact email address named in the invitation. Codes expire after 24 hours.</small></label></div><label><span id="fmv-auth-identifier-label">Email or mobile</span><input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="At least 12 characters, letters and numbers"><small id="fmv-password-help">Use 12–128 characters, including letters and numbers.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><div id="fmv-existing-account" class="fmv-existing-account" role="alert" hidden><span class="fmv-existing-account-badge">Already registered</span><h2>Welcome back to First Milk</h2><p id="fmv-existing-account-message"></p><button id="fmv-existing-signin" type="button" class="fmv-primary">Sign in instead</button><small>You can reset your password from the sign-in screen.</small></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div></div>`;
     // Choose the loading state before insertion: no sign-in flash while validating.
     gate.querySelector('#fmv-auth-fields').hidden=!!token();
     gate.querySelector('#fmv-session-check').hidden=!token();
@@ -445,6 +456,7 @@
     if(portal()==='driver' && sessionStorage.getItem('fmv_driver_application_submitted'))document.getElementById('fmv-driver-submitted').hidden=false;
     document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimeout(syncTimer);else scheduleSync(0);});
     window.addEventListener('online',()=>scheduleSync(0));
+    window.addEventListener('offline',()=>{clearTimeout(syncTimer);syncTimer=null;});
     if(token()){
       // Let all controller DOMContentLoaded handlers finish building their views
       // before an authenticated event can start rendering data into them.
