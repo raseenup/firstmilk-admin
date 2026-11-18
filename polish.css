@@ -1,0 +1,54 @@
+/* First Milk v13. Shared, responsive brand accents with paired readable inks. */
+:root{--fmv-polish-line:#dbe6e5;--fmv-polish-ink:#173d3a;--fmv-polish-muted:#506b68;--fmv-polish-surface:#fff;--fmv-polish-mint:#eaf6ef;--fmv-polish-blue:#eaf1fc;--fmv-polish-gold:#fff3d8;--fmv-polish-lilac:#f1edfc}
+body[data-portal]{background-color:#f4f8f6;background-image:radial-gradient(ellipse at 2% 0%,#e2f1e780,transparent 48%);text-rendering:optimizeLegibility}
+body[data-portal=admin]{background-color:#f5f6fb;background-image:radial-gradient(ellipse at 3% 0%,#e9e6f880,transparent 50%)}
+body[data-portal=driver]{background-color:#f3f7fb;background-image:radial-gradient(ellipse at 2% 0%,#dcebf880,transparent 50%)}
+[data-portal] .fmv-brand-note{display:flex;align-items:center;gap:17px;margin:24px 0;padding:20px 23px;border:1px solid #d4e6da;border-radius:19px;background:linear-gradient(110deg,#eaf6ef,#f9fbef);color:#173d3a;box-shadow:0 3px 14px #173d3a04}
+[data-portal=admin] .fmv-brand-note{background:linear-gradient(110deg,#efedfb,#f6f2ff);border-color:#ddd8f0}
+[data-portal=driver] .fmv-brand-note{background:linear-gradient(110deg,#e8f1fc,#eef8f6);border-color:#d3e0f1}
+[data-portal] .fmv-note-mark{display:grid;place-items:center;flex-shrink:0;width:45px;height:45px;border-radius:14px;background:#d4ecdf;color:#23634e;font-size:26px}
+[data-portal=admin] .fmv-note-mark{background:#ddd8f5;color:#58408c}
+[data-portal=driver] .fmv-note-mark{background:#d7e6fa;color:#285b95}
+[data-portal] .fmv-note-eyebrow{display:block;font-size:9px;font-weight:800;line-height:1.5;letter-spacing:1.5px;color:#4d6f60}
+[data-portal=admin] .fmv-note-eyebrow{color:#65558b}
+[data-portal=driver] .fmv-note-eyebrow{color:#466a8e}
+[data-portal] .fmv-brand-note p{margin:4px 0 0;font-size:17px;font-weight:750;line-height:1.4;letter-spacing:-.3px;color:#173d3a}
+[data-portal] .fmv-note-caption{margin-left:auto;max-width:160px;text-align:right;font-size:12px;font-weight:600;line-height:1.6;color:#506b68}
+[data-portal] .fmv-brand-note>div{min-width:0}
+body[data-portal] :is(button,a,input,select,textarea):focus-visible{outline:3px solid #3879b8;outline-offset:3px}
+body[data-portal] :is(input,select,textarea){caret-color:#087f63}
+body[data-portal] :is(.fmv-work-stat,.driver-finance-metric,.admin-quick-actions>div){border-top:3px solid #83c6aa}
+body[data-portal] :is(.fmv-work-stat,.driver-finance-metric,.admin-quick-actions>div):nth-child(3n+2){border-top-color:#e5b15f}
+body[data-portal] :is(.fmv-work-stat,.driver-finance-metric,.admin-quick-actions>div):nth-child(3n){border-top-color:#a99bda}
+body[data-portal] .customer-product-card[data-tone="0"]{border-top:3px solid #83c6aa}
+body[data-portal] .customer-product-card[data-tone="1"]{border-top:3px solid #e5b15f}
+body[data-portal] .customer-product-card[data-tone="2"]{border-top:3px solid #a99bda}
+body[data-portal] .customer-hero{background:linear-gradient(125deg,#123637,#145a4c 75%,#24725a)}
+body[data-portal] .admin-overview-hero{background:linear-gradient(125deg,#173e41,#235a51)}
+body[data-portal] .customer-hero-tags{color:#cde3d8;font-size:11px;line-height:1.6;flex-wrap:wrap}
+body[data-portal] .customer-hero h2{color:#fff}
+body[data-portal] :is(.customer-hero-copy>p,.customer-art-caption){color:#d6e9df}
+/* The only supported display currency is rupees; the ISO code stays in records. */
+body[data-portal] #portal-currency-select{display:none!important}
+:root[data-theme=dark]{--fmv-polish-line:#446173;--fmv-polish-ink:#edf7f3;--fmv-polish-muted:#bdd1dc;--fmv-polish-surface:#1c3341;--fmv-polish-mint:#203f38;--fmv-polish-blue:#203b53;--fmv-polish-gold:#443a29;--fmv-polish-lilac:#362f4e}
+:root[data-theme=dark] body[data-portal]{background-color:#101e2b!important;background-image:radial-gradient(ellipse at 0% 0%,#1c3c4460,transparent 45%)!important}
+:root[data-theme=dark] body[data-portal] .fmv-brand-note{background:linear-gradient(110deg,#203f38,#20363c)!important;border-color:#476d64!important;color:#e5f5ec!important}
+:root[data-theme=dark] body[data-portal=admin] .fmv-brand-note{background:linear-gradient(110deg,#352e4d,#273747)!important;border-color:#62587e!important}
+:root[data-theme=dark] body[data-portal=driver] .fmv-brand-note{background:linear-gradient(110deg,#203b53,#203b3d)!important;border-color:#506d87!important}
+:root[data-theme=dark] body[data-portal] .fmv-brand-note p{color:#edf7f3!important}
+:root[data-theme=dark] body[data-portal] .fmv-brand-note :is(.fmv-note-eyebrow,.fmv-note-caption){color:#bdd1dc!important}
+:root[data-theme=dark] body[data-portal] .fmv-note-mark{background:#2c5848!important;color:#b5f0cf!important}
+:root[data-theme=dark] body[data-portal=admin] .fmv-note-mark{background:#4b3c67!important;color:#dfd0ff!important}
+:root[data-theme=dark] body[data-portal=driver] .fmv-note-mark{background:#2c4c6c!important;color:#c9e2ff!important}
+:root[data-theme=dark] body[data-portal] :is(.customer-hero,.admin-overview-hero){background:linear-gradient(125deg,#133637,#154839)!important;border:1px solid #436b5b!important}
+:root[data-theme=dark] body[data-portal] .customer-hero-tags{color:#cde3d8!important}
+:root[data-theme=dark] body[data-portal] :is(.customer-hero-copy>p,.customer-art-caption){color:#d6e9df!important}
+:root[data-theme=dark] body[data-portal] .customer-hero h2{color:#fff!important}
+:root[data-theme=dark] body[data-portal] .customer-product-card[data-tone="0"]{border-top-color:#83c6aa!important}
+:root[data-theme=dark] body[data-portal] .customer-product-card[data-tone="1"]{border-top-color:#e5b15f!important}
+:root[data-theme=dark] body[data-portal] .customer-product-card[data-tone="2"]{border-top-color:#a99bda!important}
+:root[data-theme=dark] body[data-portal] :is(.fmv-work-stat,.driver-finance-metric,.admin-quick-actions>div){border-top-color:#83c6aa!important}
+:root[data-theme=dark] body[data-portal] :is(.fmv-work-stat,.driver-finance-metric,.admin-quick-actions>div):nth-child(3n+2){border-top-color:#e5b15f!important}
+:root[data-theme=dark] body[data-portal] :is(.fmv-work-stat,.driver-finance-metric,.admin-quick-actions>div):nth-child(3n){border-top-color:#a99bda!important}
+@media(max-width:760px){[data-portal] .fmv-brand-note{gap:12px;padding:17px 16px;border-radius:16px;flex-wrap:wrap}[data-portal] .fmv-brand-note>div{flex:1;min-width:180px}[data-portal] .fmv-note-mark{width:39px;height:39px;font-size:23px}[data-portal] .fmv-brand-note p{font-size:15px}[data-portal] .fmv-note-eyebrow{font-size:8px;letter-spacing:1.1px}[data-portal] .fmv-note-caption{margin:0 0 0 51px;max-width:none;text-align:left;font-size:11px}body[data-portal] :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px!important}}
+@media(prefers-reduced-motion:reduce){body[data-portal] :is(.fmv-brand-note,.customer-product-card){animation:none!important;transition:none!important;transform:none!important}}

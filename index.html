@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="fmv-locked">
 <head>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://backend.firstmilkventure.com https://api.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; media-src 'self' blob: https://backend.firstmilkventure.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="referrer" content="same-origin">
+    <link rel="preconnect" href="https://backend.firstmilkventure.com" crossorigin>
+    <meta name="theme-color" content="#123e3b">
     <link rel="stylesheet" href="portal.css">
-    <script src="config.js"></script>
-    <script src="portal-core.js"></script>
+    <script defer src="config.js"></script>
+    <script defer src="portal-core.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>First Milk Venture - Category Admin Portal</title>
@@ -17,6 +19,7 @@
     <link rel="stylesheet" href="operations.css">
     <link rel="stylesheet" href="workspace.css">
     <link rel="stylesheet" href="workforce.css">
+    <link rel="stylesheet" href="polish.css">
 </head>
 <body data-portal="admin" class="bg-gray-50 font-sans min-h-screen">
     <!-- Workspace header; account actions remain available on every section. -->
@@ -77,6 +80,8 @@
                 <div class="admin-hero-art" aria-hidden="true"><div class="admin-art-ring"></div><svg viewBox="0 0 100 110" fill="none"><path d="M38 15h24v13l8 15v47c0 6-5 10-11 10H41c-6 0-11-4-11-10V43l8-15V15Z" fill="#fff"/><path d="M38 15h24v12H38z" fill="#93dbc0"/><path d="M30 57h40v24H30z" fill="#b7e8d4"/><path d="M50 61c-4 6-8 10-8 14a8 8 0 0 0 16 0c0-4-4-8-8-14Z" fill="#087f63"/></svg><span>Thoughtfully managed.<br>Freshly delivered.</span></div>
             </section>
             
+            <aside class="fmv-brand-note" data-admin-panel="overview" aria-label="The First Milk promise"><span class="fmv-note-mark" aria-hidden="true">✦</span><div><span class="fmv-note-eyebrow">CARE STARTS WITH THE DETAILS</span><p>Thoughtful work. Fresher possibilities.</p></div><span class="fmv-note-caption">Every detail counts.</span></aside>
+
             <!-- RBAC Role Summary & Active Permissions Banner -->
             <div id="rbac-role-banner" data-admin-panel="overview" class="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
@@ -414,10 +419,10 @@
         <button type="button" id="fmv-admin-tab-support" data-admin-tab="support" aria-controls="fmv-admin-panel-support"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v12H9l-5 4V4Z"/><path d="M8 8h8m-8 4h5"/></svg><span>Support</span></button>
     </nav>
 
-    <script src="admin.js"></script>
-    <script src="experience.js"></script>
-    <script src="operations.js"></script>
-    <script src="workspace.js"></script>
-    <script src="workforce.js"></script>
+    <script defer src="admin.js"></script>
+    <script defer src="experience.js"></script>
+    <script defer src="operations.js"></script>
+    <script defer src="workspace.js"></script>
+    <script defer src="workforce.js"></script>
 </body>
 </html>
