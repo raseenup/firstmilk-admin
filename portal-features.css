@@ -51,3 +51,9 @@
 #fmv-password-help{display:block;font-size:.82rem;line-height:1.55;color:var(--fmv-ink,#45625a);opacity:.88}
 #fmv-password-help[hidden]{display:none}
 [data-theme="dark"] .fmv-password-visibility,[data-theme="dark"] .fmv-reset-password-hint,[data-theme="dark"] #fmv-password-help{color:#e8f6f1}
+
+/* Keep 10+ workspace tabs separately readable on narrow iPhones. */
+body[data-portal="admin"] #fmv-admin-nav{overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+body[data-portal="admin"] #fmv-admin-nav::-webkit-scrollbar{display:none}
+body[data-portal="admin"] #fmv-admin-nav button{flex:0 0 86px!important;min-width:86px!important;font-size:11px!important;white-space:normal;text-align:center;scroll-snap-align:center;padding-inline:5px;line-height:1.25}
+body[data-portal="admin"] #fmv-admin-nav button[hidden]{display:none!important}
