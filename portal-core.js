@@ -70,6 +70,7 @@
   function attachPasswordVisibility(input) {
     if(!input || input.dataset.visibilityAttached==='yes')return;
     input.dataset.visibilityAttached='yes';
+    if(!input.id)input.id='fmv-password-'+(input.name || 'entry');
     const field=document.createElement('span');field.className='fmv-password-control';
     input.before(field);field.append(input);
     const toggle=document.createElement('button');toggle.type='button';
