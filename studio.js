@@ -23,7 +23,7 @@
       :`<input maxlength="1200" value="${esc(value)}">`}</label>`;
   function build(){
     const dash=$('staff-dashboard'),nav=$('fmv-admin-nav');if(!dash||!nav)return;
-    for(const [tab,label,symbol] of [['website','Website design','✦'],['assistant','Chatbot training','✺'],['upi','UPI settings','₹']]){
+    for(const [tab,label,symbol] of [['website','Web Design','✦'],['assistant','Chatbot','✺'],['upi','Payment','₹']]){
       const btn=document.createElement('button');btn.type='button';btn.id='fmv-admin-tab-'+tab;
       btn.dataset.adminTab=tab;btn.setAttribute('aria-controls','fmv-admin-panel-'+tab);
       btn.innerHTML='<span class="fmv-admin-nav-symbol" aria-hidden="true">'+symbol+'</span><span>'+label+'</span>';nav.append(btn);
@@ -46,7 +46,7 @@
         <p class="fmv-small" id="fmv-site-message" role="status"></p>
       </form>`;
     const assistant=document.createElement('section');assistant.dataset.adminPanel='assistant';assistant.className='fmv-panel fmv-studio';
-    assistant.innerHTML=`<header><span class="admin-eyebrow">APPROVED COMPANY KNOWLEDGE</span><h3>Chatbot training and publishing</h3>
+    assistant.innerHTML=`<header><span class="admin-eyebrow">APPROVED COMPANY KNOWLEDGE</span><h3>Train FMV AI</h3>
       <p>All customer, driver and admin chatbots use these published answers together with live Terms & Conditions, Privacy and Refund policies. Unpublished drafts never reach customers.</p></header>
       <form id="fmv-knowledge-form" class="fmv-studio-form">
         <label class="fmv-studio-label">Topic / customer question<input name="title" required minlength="3" maxlength="120" placeholder="Milk return eligibility"></label>
@@ -55,7 +55,7 @@
         <div class="fmv-flex"><button type="submit" class="fmv-btn">Save knowledge</button><button type="button" class="fmv-btn secondary" data-studio="new-article">New article</button></div>
       </form>
       <h4>Published and draft articles</h4><div id="fmv-knowledge-list"></div>
-      <div class="fmv-studio-preview"><h4>Test chatbot answer</h4>
+      <div class="fmv-studio-preview"><h4>Test FMV AI</h4>
         <form id="fmv-admin-chat-form" class="fmv-studio-inline"><input name="question" maxlength="1200" required placeholder="Ask about delivery or company policy"><button class="fmv-btn" type="submit">Ask</button></form>
         <p id="fmv-admin-chat-reply" role="status"></p></div>
       <p class="fmv-small">Publishing Terms & Conditions, Privacy or Refund Policy in Ads & offers → Company pages automatically refreshes the chatbot's approved information.</p>`;
