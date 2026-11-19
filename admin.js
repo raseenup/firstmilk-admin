@@ -919,6 +919,9 @@ const ADMIN_WORKSPACE_TABS = Object.freeze({
   logistics: {title:'Deliveries & fleet',description:'Coordinate assignments, driver approvals and working time.',module:'operations_logistics'},
   finance: {title:'Finance & reviews',description:'Review paid-order revenue, tax settings and return decisions.',module:'finance_billing'},
   marketing: {title:'Ads & offers',description:'Publish banners, animated menus, offers and company posts.',module:'content_management'},
+  website: {title:'Website designing',description:'Publish website text, animated media and custom sections.',module:'content_management'},
+  assistant: {title:'AI chatbot training',description:'Publish approved knowledge for all company chatbots.',module:'content_management'},
+  upi: {title:'UPI payment settings',description:'Super-admin control of receiving UPI ID and bank reconciliation.',module:'security_roles'},
   invitations: {title:'Administrator invitations',description:'Invite individual staff and designate content editors.',module:'security_roles'},
   support: {title:'Customer care',description:'Helpful conversations, shared documents and customer details.',module:'customer_support'}
 });
