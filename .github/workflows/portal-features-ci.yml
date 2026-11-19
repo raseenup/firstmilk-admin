@@ -1,0 +1,20 @@
+name: First Milk portal JavaScript syntax
+on:
+  pull_request:
+    paths:
+      - '**/*.js'
+      - '.github/workflows/portal-features-ci.yml'
+  workflow_dispatch:
+jobs:
+  javascript-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate original and additive JavaScript
+        run: |
+          node --check 'admin.js'
+          node --check 'experience.js'
+          node --check 'studio.js'
