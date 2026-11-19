@@ -1,0 +1,41 @@
+/* Additive, responsive controls for company studio and help assistant. */
+.fmv-studio{display:grid;gap:1.1rem;margin-block:1rem;background:var(--fmv-surface,#fff);color:var(--fmv-ink,#142b28);border-radius:1.1rem;padding:clamp(1rem,3vw,1.8rem);border:1px solid rgba(49,131,105,.18)}
+.fmv-studio h3{font-size:1.4rem;font-weight:800;line-height:1.25;color:inherit}
+.fmv-studio h4{font-size:1.03rem;font-weight:800;margin:.7rem 0}
+.fmv-studio p{line-height:1.6}
+.fmv-studio-form{display:grid;gap:.8rem}
+.fmv-studio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:.9rem}
+.fmv-studio-label{display:grid;gap:.4rem;font-size:.87rem;font-weight:700;min-width:0}
+.fmv-studio-label input:not([type=checkbox]),.fmv-studio-label textarea,.fmv-studio-label select,.fmv-studio-inline input{width:100%;padding:.75rem .85rem;border-radius:.75rem;border:1px solid #a8bcb8;background:var(--fmv-input-bg,#fff);color:var(--fmv-ink,#14302c);font:inherit;min-height:43px}
+.fmv-studio-label textarea{min-height:72px}
+.fmv-studio-label small,.fmv-studio .fmv-small{font-size:.81rem;opacity:.77;font-weight:400}
+.fmv-check{display:flex;align-items:center;gap:.6rem}
+.fmv-studio-preview,.fmv-studio-block{padding:1rem;border:1px solid rgba(49,131,105,.25);border-radius:1rem;background:var(--fmv-surface-soft,rgba(219,246,229,.25))}
+.fmv-studio-block{margin:.75rem 0;display:grid;gap:.85rem}
+.fmv-studio-inline{display:flex;gap:.5rem;flex-wrap:wrap}
+.fmv-studio-inline input{flex:1 1 200px}
+.fmv-studio [role=status]{white-space:pre-wrap}
+.fmv-floating-help{position:fixed;bottom:clamp(77px,12vh,112px);right:1rem;z-index:100}
+.fmv-chat-toggle{box-shadow:0 10px 32px rgba(0,0,0,.2);border:0;border-radius:999px;background:#116b58;color:white;min-height:48px;padding:.8rem 1.2rem;font-weight:800;cursor:pointer}
+.fmv-floating-panel{position:absolute;right:0;bottom:calc(100% + .6rem);width:min(370px,calc(100vw - 2rem));max-height:min(540px,72vh);display:flex;flex-direction:column;gap:.65rem;padding:1rem;border:1px solid #b7d8c8;border-radius:1.1rem;background:var(--fmv-surface,#fff);color:var(--fmv-ink,#16332c);box-shadow:0 18px 60px rgba(0,0,0,.22)}
+.fmv-floating-panel[hidden],.fmv-floating-help[hidden]{display:none}
+.fmv-floating-panel h3{font-size:1.04rem;font-weight:800;color:inherit}
+.fmv-floating-feed{flex:1 1 auto;min-height:115px;overflow:auto;display:grid;align-content:start;gap:.5rem}
+.fmv-floating-feed p{white-space:pre-wrap;background:rgba(85,166,138,.1);padding:.6rem .75rem;border-radius:.7rem;font-size:.85rem}
+.fmv-floating-form{display:grid;gap:.5rem}
+.fmv-floating-form textarea{width:100%;border:1px solid #a1b9ab;background:var(--fmv-input-bg,#fff);color:var(--fmv-ink,#142b28);border-radius:.7rem;padding:.75rem;resize:vertical;max-height:140px}
+.fmv-floating-form button,.fmv-feature-button{border:0;border-radius:.7rem;padding:.7rem 1rem;background:#087c60;color:#fff;font-weight:800;cursor:pointer}
+.fmv-returns-panel{background:var(--fmv-surface,#fff);color:var(--fmv-ink,#142b28);border:1px solid #bfd9cc;border-radius:1rem;padding:1rem;display:grid;gap:1rem;margin:1rem 0}
+.fmv-returns-panel h4{font-size:1.05rem;font-weight:800}
+.fmv-returns-panel label{display:grid;gap:.4rem}
+.fmv-returns-panel input,.fmv-returns-panel textarea,.fmv-returns-panel select{border:1px solid #a0b8af;border-radius:.7rem;padding:.65rem;background:var(--fmv-input-bg,#fff);color:var(--fmv-ink,#142b28);width:100%}
+.fmv-returns-cards{display:grid;gap:.6rem}
+.fmv-returns-card{border:1px solid #bfd9cc;border-radius:.85rem;padding:.8rem;background:rgba(132,196,152,.07)}
+.fmv-returns-card small{display:block;opacity:.75}
+.fmv-payment-panel{display:grid;gap:.8rem;padding:1rem;border:1px solid #b5d9c9;border-radius:1rem;background:var(--fmv-surface,#fff);color:var(--fmv-ink,#142b28)}
+.fmv-payment-panel input{border:1px solid #9eb1ab;background:var(--fmv-input-bg,#fff);color:var(--fmv-ink,#142b28);border-radius:.7rem;padding:.75rem;width:100%}
+.fmv-returns-panel [hidden],.fmv-payment-panel [hidden]{display:none}
+@media(max-width:520px){.fmv-floating-help{right:.65rem;bottom:85px}.fmv-floating-panel{width:calc(100vw - 1.3rem)}}
+@media(prefers-reduced-motion:no-preference){.fmv-chat-toggle:hover{transform:translateY(-1px);transition:transform .18s}}
+[data-theme="dark"] .fmv-studio,[data-theme="dark"] .fmv-floating-panel,[data-theme="dark"] .fmv-returns-panel,[data-theme="dark"] .fmv-payment-panel{--fmv-surface:#18292c;--fmv-surface-soft:#20373a;--fmv-input-bg:#122528;--fmv-ink:#edf8f5}
+:focus-visible{outline:3px solid #e8b951;outline-offset:2px}
