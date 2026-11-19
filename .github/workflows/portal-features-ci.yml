@@ -18,3 +18,8 @@ jobs:
           node --check 'admin.js'
           node --check 'experience.js'
           node --check 'studio.js'
+
+      - name: Install browser-test dependencies
+        run: npm install --no-save jsdom@27.2.0
+      - name: Run shared portal browser tests
+        run: node --test tests/portal-core.test.cjs
