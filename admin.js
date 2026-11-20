@@ -918,6 +918,7 @@ const ADMIN_WORKSPACE_TABS = Object.freeze({
   catalog: {title:'Catalog & inventory',description:'Fresh products, clear prices and stock you can trust.',module:'catalog_inventory'},
   logistics: {title:'Deliveries & fleet',description:'Coordinate assignments, driver approvals and working time.',module:'operations_logistics'},
   finance: {title:'Finance & reviews',description:'Review paid-order revenue, tax settings and return decisions.',module:'finance_billing'},
+  returns: {title:'Return Pickup',description:'Review returned items, schedule collection drivers and confirm warehouse receipt.',module:'return_collection'},
   marketing: {title:'Ads & offers',description:'Publish banners, animated menus, offers and company posts.',module:'content_management'},
   website: {title:'Web Design',description:'Publish website text, animated media and custom sections.',module:'content_management'},
   assistant: {title:'Chatbot',description:'Publish approved knowledge for all company chatbots.',module:'content_management'},
@@ -932,6 +933,7 @@ function adminWorkspaceModules(){
   const modules=[...(RBAC_ROLES[current.role]?.modules || [])];
   if(['super_admin','operations_manager','finance'].includes(current.role) || current.driver_manager===true || current.payout_approver===true)modules.push('driver_management');
   if(current.content_editor===true && !modules.includes('content_management'))modules.push('content_management');
+  if(current.role==='super_admin' || current.role==='operations_manager' || current.driver_manager===true)modules.push('return_collection');
   return modules;
 }
 function groupAdminPanels(){
