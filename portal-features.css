@@ -57,3 +57,21 @@ body[data-portal="admin"] #fmv-admin-nav{overflow-x:auto;overflow-y:hidden;scrol
 body[data-portal="admin"] #fmv-admin-nav::-webkit-scrollbar{display:none}
 body[data-portal="admin"] #fmv-admin-nav button{flex:0 0 86px!important;min-width:86px!important;font-size:11px!important;white-space:normal;text-align:center;scroll-snap-align:center;padding-inline:5px;line-height:1.25}
 body[data-portal="admin"] #fmv-admin-nav button[hidden]{display:none!important}
+
+/* Authorized return-pickup manager, mobile-first and dark-mode readable. */
+.fmv-return-workspace{display:grid;gap:1rem;color:var(--fmv-ink,#173f35)}
+.fmv-return-workspace header p{line-height:1.55;max-width:75ch}
+.fmv-return-workspace h3{font-size:clamp(1.35rem,3vw,1.8rem);font-weight:850}
+.fmv-return-workspace h4,.fmv-return-workspace h5{font-size:1.07rem;font-weight:800}
+.fmv-return-settings{display:grid;gap:.85rem;padding:1rem;background:var(--fmv-surface-soft,#ecf8f0);border:1px solid #b8d9c5;border-radius:1rem}
+.fmv-return-settings[hidden]{display:none}
+.fmv-return-queue{display:grid;gap:1rem}
+.fmv-return-case{padding:clamp(.8rem,2vw,1.3rem);border:1px solid #bad8c9;border-radius:1rem;display:grid;gap:.65rem;background:var(--fmv-surface,#fff);overflow-wrap:anywhere}
+.fmv-return-case>p{margin:0;line-height:1.45}
+.fmv-return-state{font-size:.78rem;font-weight:750;letter-spacing:.02em;background:#e5f3e9;border:1px solid #a8cdb8;padding:.35rem .7rem;border-radius:999px;text-transform:capitalize}
+.fmv-return-pickup-status{display:grid;gap:.3rem;padding:.85rem;background:var(--fmv-surface-soft,#eef7f1);border-radius:.8rem;font-size:.85rem}
+.fmv-return-assignment,.fmv-return-receipt{display:grid;gap:.8rem;border-top:1px solid #c9ded4;padding-top:1rem;margin-top:.3rem}
+.fmv-return-case .fmv-btn{min-height:44px}
+.fmv-return-case .fmv-studio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:.8rem}
+[data-theme="dark"] .fmv-return-workspace{--fmv-surface:#1b3032;--fmv-surface-soft:#1c3938;--fmv-ink:#f2faf5}
+[data-theme="dark"] .fmv-return-state{background:#224a39;color:#f2fbf5;border-color:#497e60}
