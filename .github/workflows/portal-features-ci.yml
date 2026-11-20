@@ -18,6 +18,7 @@ jobs:
           node --check 'admin.js'
           node --check 'experience.js'
           node --check 'studio.js'
+          node --check 'return-collections.js'
 
       - name: Install browser-test dependencies
         run: npm install --no-save jsdom@27.2.0
