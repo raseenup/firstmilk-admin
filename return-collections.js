@@ -78,17 +78,11 @@
       <button class="fmv-btn" type="submit">${scheduled?'Update assignment':'Assign driver'}</button>
       ${scheduled?`<button class="fmv-btn secondary" type="button" data-return-action="cancel" data-return-id="${esc(c.id)}">Cancel pickup</button>`:''}
     </form>`:'';
-    const receiveForm=canReceive?`<form class="fmv-return-receipt" data-return-submit="receive" data-return-id="${esc(c.id)}">
-      <h5>Warehouse receiving inspection</h5>
-      <div class="fmv-studio-grid"><label class="fmv-studio-label">Condition at receipt<select name="condition" required>
-        <option value="sealed">Sealed</option><option value="opened">Opened</option>
-        <option value="damaged">Damaged</option><option value="other">Other</option></select></label>
-        <label class="fmv-studio-label">Inventory disposition<select name="disposition" required>
-        <option value="quarantine">Quarantine</option><option value="inspection_pending">Inspection pending</option>
-        <option value="dispose">Dispose</option></select></label></div>
-      <label class="fmv-studio-label">Inspection note<textarea name="note" maxlength="700" rows="2"></textarea></label>
-      <button type="submit" class="fmv-btn">Confirm warehouse receipt</button>
-    </form>`:'';
+    const receiveForm=canReceive?`<div class="fmv-quality-handoff">
+      <strong>Collected — awaiting yard inspection</strong>
+      <p>Use Yard Quality to verify product condition and complete an auditable inspection report before any inventory or refund decision.</p>
+      <button type="button" class="fmv-btn secondary" data-return-action="open-quality" data-return-id="${esc(c.id)}">Open Yard Quality</button>
+    </div>`:'';
     return `<article class="fmv-return-case">
       <div class="fmv-flex"><strong>${esc(c.id)}</strong><span class="fmv-return-state">${esc(label(c.status))}</span></div>
       <p><strong>${esc(c.order_number)}</strong> · ${esc(c.claim_type)} request</p>
@@ -139,6 +133,10 @@
   async function click(ev){
     const button=ev.target.closest('[data-return-action]');if(!button||!canManage())return;
     const action=button.dataset.returnAction,id=button.dataset.returnId;
+    if(action==='open-quality'){
+      document.getElementById('fmv-admin-tab-quality')?.click();
+      return;
+    }
     if(!['approve','reject','cancel'].includes(action))return;
     let path='/admin/return-collections/'+encodeURIComponent(id),body=null;
     if(action==='approve' || action==='reject'){
