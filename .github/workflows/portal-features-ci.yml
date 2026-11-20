@@ -20,8 +20,9 @@ jobs:
           node --check 'experience.js'
           node --check 'studio.js'
           node --check 'return-collections.js'
+          node --check 'yard-quality.js'
 
       - name: Install browser-test dependencies
         run: npm install --no-save jsdom@27.2.0
       - name: Run shared portal browser tests
-        run: node --test tests/return-collection-ui.test.cjs tests/portal-core.test.cjs
+        run: node --test tests/return-quality-ui.test.cjs tests/return-collection-ui.test.cjs tests/portal-core.test.cjs
