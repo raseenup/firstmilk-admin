@@ -13,6 +13,7 @@ test('Admin Return Pickup is scoped to approved operations and driver managers',
 test('Collection staff cannot see or use the pickup PIN',()=>{
  assert.doesNotMatch(src,/pickup_pin/);
  assert.match(src,/expected_version/);
- assert.match(src,/warehouse receipt/i);
+ assert.match(src,/Yard Quality/);
+ assert.doesNotMatch(src,/data-return-submit="receive"/);
  assert.match(src,/max_active_pickups_per_driver/);
 });
