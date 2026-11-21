@@ -1,0 +1,28 @@
+/* Official First Milk Venture brand identity. Local assets, no outside font/image requests. */
+:root{--fmv-brand-green:#16824c;--fmv-brand-blue:#06488f;--fmv-brand-cream:#fbfdf8}
+.customer-header .customer-brand-mark,
+.admin-header .admin-brand-mark,
+.driver-topbar .driver-brand-mark{
+  width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;
+  padding:4px!important;border-radius:15px!important;display:grid!important;place-items:center!important;
+  background:linear-gradient(145deg,#ffffff,#e9f8ee)!important;
+  box-shadow:0 3px 14px rgba(0,49,40,.12);transform:none!important;overflow:hidden;
+}
+.fmv-official-mark{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,45,35,.08))}
+.fmv-auth-card .fmv-brand{display:flex;justify-content:center;align-items:center;margin:0 auto 4px;
+  letter-spacing:normal;line-height:1}
+.fmv-auth-card .fmv-auth-brand-img{width:min(190px,58vw);height:auto;aspect-ratio:1/1;object-fit:contain;display:block}
+.fmv-auth-card .fmv-eyebrow{text-align:center}
+.customer-header .customer-brand-copy,.admin-header .admin-brand>span:last-child,
+.driver-topbar .driver-brand>div{min-width:0}
+.customer-header .customer-brand-copy h1,
+.admin-header .admin-brand strong,.driver-topbar .driver-brand-name{
+  letter-spacing:-.035em;overflow-wrap:normal}
+@media(max-width:520px){
+ .customer-header .customer-brand-mark,.admin-header .admin-brand-mark,
+ .driver-topbar .driver-brand-mark{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;padding:3px!important;border-radius:12px!important}
+ .fmv-auth-card .fmv-auth-brand-img{width:min(165px,55vw)}
+}
+[data-theme="dark"] .customer-header .customer-brand-mark,
+[data-theme="dark"] .admin-header .admin-brand-mark,
+[data-theme="dark"] .driver-topbar .driver-brand-mark{background:#f6fff7!important}
