@@ -4,11 +4,11 @@
   const MAX_FILE=50_000_000;
   const SIZE=2_000_000;
   const allowed={
-    'image/jpeg':/\\.jpe?g$/i,
-    'image/png':/\\.png$/i,
-    'image/gif':/\\.gif$/i,
-    'image/webp':/\\.webp$/i,
-    'video/mp4':/\\.mp4$/i
+    'image/jpeg':/\.jpe?g$/i,
+    'image/png':/\.png$/i,
+    'image/gif':/\.gif$/i,
+    'image/webp':/\.webp$/i,
+    'video/mp4':/\.mp4$/i
   };
   const pause=(delay)=>new Promise(resolve=>setTimeout(resolve,delay));
   function validate(file){
