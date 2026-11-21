@@ -22,8 +22,17 @@
     </div><div class="fmv-flex"><button class="fmv-btn secondary" type="button" data-admin-action="remove-media">Remove artwork</button></div><label>Image description<input name="alt_text" maxlength="200" placeholder="Describe the image for customers using screen readers"></label><div class="fmv-editor-columns"><label>Artwork width (px)<input name="display_width" type="number" min="240" max="1600" step="1" value="1200" required></label><label>Artwork height (px)<input name="display_height" type="number" min="80" max="1000" step="1" value="300" required></label><label>Artwork fit<select name="media_fit"><option value="contain">Show whole image</option><option value="cover">Fill frame (crop edges)</option></select></label><label>Entry animation<select name="animation"><option value="fade">Fade in</option><option value="slide">Slide in</option><option value="none">None</option></select></label><label>Button label<input name="cta_label" maxlength="40" value="Explore"></label><label>Button destination<select name="cta_path"><option value="catalog">Product catalog</option><option value="offers">Offers</option><option value="home">Home</option><option value="profile">Profile</option></select></label><label>Display order<input name="sort_order" type="number" min="0" max="10000" step="1" value="0" required></label><label>Start time (optional)<input name="starts_at" type="datetime-local"></label><label>End time (optional)<input name="ends_at" type="datetime-local"></label></div><label>Offer terms / additional details<textarea name="terms" rows="2" maxlength="1000" placeholder="Eligibility, dates and conditions. Publishing a post does not change checkout prices."></textarea></label><div class="fmv-flex"><button type="submit" class="fmv-btn">Upload & publish</button><button class="fmv-btn secondary" type="button" data-admin-action="cancel-campaign">Cancel</button></div></form><div id="fmv-campaign-list" class="fmv-admin-campaign-grid"></div>
     <section class="fmv-ad-media-library" aria-label="Media storage management">
       <div class="fmv-flex"><div><h4>Media library</h4>
-        <p class="fmv-small">Secure media up to 50 MB each. Unused files can be deleted to free storage.</p>
+        <p class="fmv-small">Upload once and reuse images, GIFs and videos in ads or website sections anytime. Files stay saved until you explicitly delete them.</p>
       </div><button type="button" class="fmv-btn secondary" data-admin-action="refresh-media-library">Refresh library</button></div>
+      <div class="fmv-library-upload-panel">
+        <label for="fmv-library-file">Save a file to your media library</label>
+        <input id="fmv-library-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4">
+        <button type="button" class="fmv-btn" data-admin-action="upload-library-file">Upload &amp; save for reuse</button>
+        <div id="fmv-library-upload-state" class="fmv-media-upload-state" role="status" hidden>
+          <span id="fmv-library-upload-text">Preparing secure upload…</span>
+          <progress id="fmv-library-upload-progress" max="100" value="0"></progress>
+        </div>
+      </div>
       <p id="fmv-media-library-usage" class="fmv-small" role="status"></p>
       <div id="fmv-media-library-items" class="fmv-ad-media-items"></div>
     </section><details class="fmv-company-pages"><summary>Help, policies & company pages</summary><p class="fmv-small">Publish your company’s approved information here. Customers can open each page from Profile.</p><form id="fmv-company-page-form" class="fmv-editor-form"><label>Page<select id="fmv-company-page-slug" name="slug">${Object.entries(pageTitles).map(([slug,title])=>`<option value="${slug}">${title}</option>`).join('')}</select></label><label>Title<input name="title" maxlength="120" required></label><label>Page content<textarea name="body" rows="9" maxlength="20000" required></textarea></label><button type="submit" class="fmv-btn">Publish company page</button></form></details>`;
@@ -162,6 +171,29 @@
     $('fmv-campaign-list').innerHTML=campaigns.slice().sort((a,b)=>a.sort_order-b.sort_order).map(c=>`<article class="fmv-admin-campaign"><div class="fmv-admin-campaign-media">${c.media_url?(c.mime_type==='video/mp4'?`<video src="${e(FMV.apiBase+c.media_url)}" muted loop autoplay playsinline preload="none" disablepictureinpicture disableremoteplayback aria-label="${e(c.title)}"></video>`:`<img src="${e(FMV.apiBase+c.media_url)}" alt="${e(c.alt_text || c.title)}" loading="lazy">`):'<span aria-hidden="true">FMV.</span>'}</div><div class="fmv-admin-campaign-copy"><span class="fmv-publish-tag" data-state="${e(c.status)}">${e(c.status)} · ${e(c.placement)} · ${Number(c.display_width) || 1200} × ${Number(c.display_height) || 300}px</span><h4>${e(c.title)}</h4><p>${e(c.description)}</p><div class="fmv-flex"><button class="fmv-btn" data-admin-action="edit-campaign" data-id="${e(c.id)}">Edit</button><button class="fmv-btn secondary" data-admin-action="toggle-campaign" data-id="${e(c.id)}">${c.status==='published'?'Unpublish':'Publish'}</button><button class="fmv-btn danger" data-admin-action="delete-campaign" data-id="${e(c.id)}">Remove</button></div></div></article>`).join('') || FMV.empty('No campaigns yet. Choose Add ad or post to publish your first banner.');
   }
 
+  async function uploadLibraryFile(){
+    const input=$('fmv-library-file'),file=input?.files?.[0];
+    if(!file){FMV.notice('Choose an image, GIF or MP4 file first.',true);return;}
+    window.FMVUpload.validate(file);
+    const state=$('fmv-library-upload-state'),progress=$('fmv-library-upload-progress');
+    const caption=$('fmv-library-upload-text');
+    state.hidden=false;progress.value=0;
+    try{
+      const saved=await window.FMVUpload.upload(file,{onProgress:(sent,total)=>{
+        const pct=Math.round(sent/total*100);
+        progress.value=pct;caption.textContent=file.name+' · '+pct+'% uploaded';
+      }});
+      input.value='';
+      progress.value=100;
+      caption.textContent='Saved to the reusable media library. You can now select this file for any future ad or website section.';
+      await loadMediaLibrary();
+      FMV.notice('File saved for reuse. Choose “Use in new ad” below, or open Web Design to use it on your website.');
+      return saved;
+    }catch(error){
+      caption.textContent='Upload was not completed. '+error.message;
+      throw error;
+    }
+  }
   async function loadMediaLibrary(){
     if(!mayPublish())return;
     const response=await FMV.request('/admin/content-media/library');
@@ -175,12 +207,12 @@
     list.innerHTML=mediaLibrary.map(asset=>`<div class="fmv-ad-media-item">
       <span class="fmv-media-file-icon" aria-hidden="true">${asset.mime_type==='video/mp4'?'▶':'▣'}</span>
       <div class="fmv-ad-media-details"><strong>${e(asset.filename||'Marketing media')}</strong>
-        <small>${e(asset.mime_type)} · ${pretty(asset.size)}</small></div>
+        <small>${e(asset.mime_type)} · ${pretty(asset.size)} · Saved for reuse</small></div>
       <button type="button" class="fmv-btn" data-admin-action="use-library-media"
         data-id="${e(asset.id)}">Use in new ad</button>
       ${asset.in_use?'<span class="fmv-publish-tag">In use</span>':
         `<button type="button" class="fmv-btn secondary" data-admin-action="delete-unused-media"
-          data-id="${e(asset.id)}">Remove unused</button>`}
+          data-id="${e(asset.id)}">Delete permanently</button>`}
     </div>`).join('')||'<p class="fmv-small">No media uploaded yet.</p>';
   }
 
@@ -219,10 +251,11 @@
     button.disabled=true;
     try{
       if(action==='refresh-media-library'){await loadMediaLibrary();return;}
+      if(action==='upload-library-file'){await uploadLibraryFile();return;}
       if(action==='delete-unused-media'){
         const asset=mediaLibrary.find(item=>item.id===id);
         if(!asset||asset.in_use)return;
-        if(!confirm('Permanently remove unused media: '+(asset.filename||id)+'?'))return;
+        if(!confirm('Delete this saved file permanently? It will no longer be reusable: '+(asset.filename||id)+'\n\nThis cannot be undone.'))return;
         await FMV.request('/admin/content-media/library/'+encodeURIComponent(id),{method:'DELETE'});
         FMV.notice('Unused media removed; storage capacity is available again.');
         await loadMediaLibrary();
@@ -247,7 +280,7 @@
   document.addEventListener('fmv:sync',()=>FMV.guard(refresh));
   document.addEventListener('fmv:admin-tab',()=>FMV.guard(refresh));
   document.addEventListener('fmv:locked',()=>{
-    campaigns=[];pages={};editing=null;mediaId='';busy=false;
+    campaigns=[];pages={};mediaLibrary=[];editing=null;mediaId='';busy=false;
     for(const id of ['fmv-invitation-form','fmv-campaign-form','fmv-company-page-form'])$(id)?.reset();
     if($('fmv-invitation-code'))$('fmv-invitation-code').value='';
     for(const id of ['fmv-invitation-result','fmv-campaign-form'])if($(id))$(id).hidden=true;

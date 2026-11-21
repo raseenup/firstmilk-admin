@@ -6,7 +6,7 @@
   const api=(path,options)=>FMV.request(path,options);
   const editable=()=>FMV.user?.portal==='admin' &&
     (['super_admin','content_manager'].includes(FMV.user.role) || FMV.user.content_editor===true);
-  let knowledge=[],website=null,upi=null,editingId=null,sections=[];
+  let knowledge=[],website=null,upi=null,editingId=null,sections=[],studioMediaLibrary=[];
   const copyFields=[
     ['topline','Top announcement'],['hero_title','Hero headline'],['hero_description','Hero description'],
     ['products_title','Product section headline'],['products_description','Product section description'],
@@ -35,13 +35,18 @@
         <h4>Site text and presentation</h4><div id="fmv-site-fields" class="fmv-studio-grid"></div>
         <div class="fmv-studio-grid">
           <label class="fmv-studio-label">Hero image, GIF or MP4 <input id="fmv-site-media" type="file" data-media-max-bytes="50000000" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4"><small>JPG, PNG, GIF, WebP or MP4 • up to 50 MB per file. Uploads are validated and transferred securely in resumable parts; for faster website loads use compressed images and short videos.</small></label>
+          <label class="fmv-studio-label">Reuse saved image, GIF or video<select id="fmv-site-saved-media">
+            <option value="">Keep current hero artwork</option>
+            <option value="__remove__">Remove hero artwork</option>
+          </select><small>Choose media uploaded once in Ads &amp; offers → Media library.</small></label>
           <label class="fmv-studio-label">Media fit<select name="media_fit"><option value="cover">Cover</option><option value="contain">Contain</option></select></label>
           <label class="fmv-studio-label">Brand background colour<input name="background_color" type="color" value="#103f36"></label>
         </div><div id="fmv-website-preview" class="fmv-studio-preview"></div>
         <div id="fmv-website-upload-state" class="fmv-media-upload-state" role="status" hidden>
           <span id="fmv-website-upload-text">Ready to upload</span><progress id="fmv-website-upload-progress" max="100" value="0"></progress>
         </div>
-        <h4>Custom website sections</h4><p>Add any number of new content sections up to 24, with optional artwork and location on the homepage or Careers.</p>
+        <h4>Custom website sections</h4><p>Add up to 24 sections with their own reusable library images, GIFs, videos and positions on the homepage or Careers page.</p>
+        <button type="button" class="fmv-btn secondary" data-studio="refresh-media-library">Refresh saved media choices</button>
         <button type="button" class="fmv-btn secondary" data-studio="add-block">+ Add website section</button>
         <div id="fmv-site-sections"></div>
         <div class="fmv-flex"><button class="fmv-btn" type="submit">Publish website changes</button>
@@ -90,8 +95,34 @@
       if(caption)caption.textContent=file.name+' · '+percent+'% uploaded';
       if(progress)progress.value=percent;
     }});
-    if(status)status.textContent='Media uploaded and validated: '+file.name;
+    if(status)status.textContent='Media uploaded and saved for reuse: '+file.name;
+    // Keep the completed asset ID in the form for a retry; never upload again
+    // if an unrelated website or section save fails.
+    $(id).value='';
+    studioMediaLibrary=[{id:asset.id,filename:file.name,mime_type:asset.mime_type,size:asset.size},...studioMediaLibrary.filter(item=>item.id!==asset.id)];
+    if(id==='fmv-site-media')renderHeroMediaOptions(asset.id);
     return asset.id;
+  }
+  function mediaLibraryOption(item,selected){
+    const label=(item.mime_type==='video/mp4'?'Video · ':'Image · ')+
+      (item.filename||'Saved media')+' · '+(Math.round(item.size/100000)/10)+' MB';
+    return '<option value="'+esc(item.id)+'"'+(selected===item.id?' selected':'')+'>'+esc(label)+'</option>';
+  }
+  function renderHeroMediaOptions(value){
+    const input=$('fmv-site-saved-media');
+    if(!input)return;
+    const chosen=value!==undefined?value:input.value;
+    input.innerHTML='<option value="">Keep current hero artwork</option>'+
+      '<option value="__remove__">Remove hero artwork</option>'+
+      studioMediaLibrary.map(item=>mediaLibraryOption(item,chosen)).join('');
+    // Selection defaults to "keep current", never silently replace the website.
+    if(chosen && (chosen==='__remove__' || studioMediaLibrary.some(item=>item.id===chosen)))
+      input.value=chosen;
+  }
+  async function loadStudioMediaLibrary(){
+    const result=await api('/admin/content-media/library');
+    studioMediaLibrary=Array.isArray(result.assets)?result.assets:[];
+    renderHeroMediaOptions();
   }
   function renderSections(){
     $('fmv-site-sections').innerHTML=sections.map((b,index)=>`<article class="fmv-studio-block" data-block="${esc(b.id)}">
@@ -102,7 +133,11 @@
         <label class="fmv-studio-label">Visual style<select data-key="variant">${['feature','banner','quote','cta'].map(x=>`<option value="${x}" ${b.variant===x?'selected':''}>${x}</option>`).join('')}</select></label>
         <label class="fmv-studio-label">Headline<input required maxlength="160" data-key="title" value="${esc(b.title)}"></label>
       </div><label class="fmv-studio-label">Text<textarea data-key="body" rows="3" maxlength="1400">${esc(b.body)}</textarea></label>
-      <label class="fmv-studio-label">Optional new image / GIF / video<input id="fmv-block-media-${index}" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4" data-media-max-bytes="50000000"><small>Max 50 MB • background upload in 2 MB parts</small></label>
+      <label class="fmv-studio-label">Reuse a saved library file<select data-key="media_id">
+        <option value="">No media in this section</option>
+        ${studioMediaLibrary.map(item=>mediaLibraryOption(item,b.media_id)).join('')}
+      </select><small>The same file can be reused in unlimited sections without another upload.</small></label>
+      <label class="fmv-studio-label">Or upload a new image / GIF / video<input id="fmv-block-media-${index}" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4" data-media-max-bytes="50000000"><small>Max 50 MB • saved in the library for future reuse</small></label>
       ${b.media_url?`<p class="fmv-small">Media: ${esc(b.media_url)}</p>`:''}
     </article>`).join('');
   }
@@ -111,7 +146,10 @@
   }));}
   async function loadWebsite(){
     if(!editable())return;
-    website=await api('/admin/website');
+    const [site,library]=await Promise.all([api('/admin/website'),api('/admin/content-media/library')]);
+    website=site;
+    studioMediaLibrary=Array.isArray(library.assets)?library.assets:[];
+    renderHeroMediaOptions('');
     for(const [field,label] of copyFields){
       let area=$('fmv-site-fields').querySelector('[data-copy="'+field+'"]');
       if(!area){area=document.createElement('label');area.className='fmv-studio-label';area.dataset.copy=field;
@@ -135,10 +173,23 @@
       readSections();const blocks=[];
       for(let i=0;i<sections.length;i++){
         const b={...sections[i]};
-        if($('fmv-block-media-'+i)?.files?.length)b.media_id=await upload('fmv-block-media-'+i);
+        if($('fmv-block-media-'+i)?.files?.length){
+          b.media_id=await upload('fmv-block-media-'+i);
+          sections[i].media_id=b.media_id;
+          // Keep the media ID in the editor if a later API save fails.
+          const picker=$('fmv-site-sections').children[i]?.querySelector('[data-key="media_id"]');
+          if(picker && !Array.from(picker.options).some(option=>option.value===b.media_id)){
+            const option=document.createElement('option');
+            option.value=b.media_id;option.textContent='Newly uploaded library file';
+            picker.add(option);
+          }
+          if(picker)picker.value=b.media_id;
+        }
         delete b.media_type;delete b.media_url;blocks.push(b);
       }
-      const media_id=await upload('fmv-site-media') || website.media_id || '';
+      const chosenHero=$('fmv-site-saved-media').value;
+      const uploadedHero=await upload('fmv-site-media');
+      const media_id=uploadedHero || (chosenHero==='__remove__'?'':chosenHero || website.media_id || '');
       const copy=Object.fromEntries(copyFields.map(([key])=>[key,$('fmv-site-fields').querySelector('[data-copy="'+key+'"] textarea').value]));
       website=await api('/admin/website',{method:'PATCH',body:{copy,blocks,media_id,
         media_fit:form.elements.media_fit.value,background_color:form.elements.background_color.value,version:website.version}});
@@ -193,6 +244,15 @@
   async function click(ev){
     const button=ev.target.closest('[data-studio]');if(!button)return;
     const action=button.dataset.studio;
+    if(action==='refresh-media-library'){
+      readSections();
+      const previousHero=$('fmv-site-saved-media').value;
+      await loadStudioMediaLibrary();
+      renderHeroMediaOptions(previousHero);
+      renderSections();
+      FMV.notice('Saved media choices refreshed. Existing form changes are preserved.');
+      return;
+    }
     if(action==='add-block'){readSections();sections.push({id:'section-'+crypto.randomUUID(),
       page:'home',placement:'after-products',variant:'feature',title:'Fresh news',body:'',media_id:''});renderSections();return;}
     if(action==='remove-block'){readSections();sections.splice(Number(button.dataset.index),1);renderSections();return;}
@@ -221,5 +281,5 @@
   document.addEventListener('DOMContentLoaded',build);
   document.addEventListener('fmv:authenticated',()=>FMV.guard(async()=>{syncAdminNavigation();await refresh();}));
   document.addEventListener('fmv:admin-tab',()=>FMV.guard(refresh));
-  document.addEventListener('fmv:locked',()=>{knowledge=[];website=null;upi=null;sections=[];editingId=null;});
+  document.addEventListener('fmv:locked',()=>{knowledge=[];website=null;upi=null;sections=[];studioMediaLibrary=[];editingId=null;});
 })();

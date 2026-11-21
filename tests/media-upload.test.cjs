@@ -104,3 +104,20 @@ test('Existing media can be attached without uploading a duplicate, and deleted 
   assert.match(ads,/\$\('fmv-campaign-file'\)\.value='';\s*mediaPreview/);
   assert.match(ads,/await refreshCampaigns\(\);await loadMediaLibrary\(\)/);
 });
+
+
+test('Admins can save media to the reusable library and select it for ads or website pages',()=>{
+  const ads=fs.readFileSync('experience.js','utf8');
+  const studio=fs.readFileSync('studio.js','utf8');
+  assert.match(ads,/data-admin-action="upload-library-file"/);
+  assert.match(ads,/function uploadLibraryFile\(/);
+  assert.match(ads,/Saved to the reusable media library/);
+  assert.match(ads,/data-admin-action="use-library-media"/);
+  assert.match(studio,/id="fmv-site-saved-media"/);
+  assert.match(studio,/data-key="media_id"/);
+  assert.match(studio,/function renderHeroMediaOptions\(/);
+  assert.match(studio,/\/admin\/content-media\/library/);
+  assert.match(studio,/studioMediaLibrary=/);
+  assert.match(studio,/sections\[i\]\.media_id=b\.media_id/);
+  assert.match(studio,/chosenHero==='__remove__'/);
+});
