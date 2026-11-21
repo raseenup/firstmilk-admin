@@ -34,7 +34,7 @@
       <form id="fmv-site-form" class="fmv-studio-form">
         <h4>Site text and presentation</h4><div id="fmv-site-fields" class="fmv-studio-grid"></div>
         <div class="fmv-studio-grid">
-          <label class="fmv-studio-label">Hero image, GIF or MP4 <input id="fmv-site-media" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4"><small>Maximum 1.5 MB. Uploads are reviewed by the server before publication.</small></label>
+          <label class="fmv-studio-label">Hero image, GIF or MP4 <input id="fmv-site-media" type="file" data-media-max-bytes="50000000" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4"><small>JPG, PNG, GIF, WebP or MP4 • up to 50 MB per file. Uploads are validated and transferred securely in resumable parts; for faster website loads use compressed images and short videos.</small></label>
           <label class="fmv-studio-label">Media fit<select name="media_fit"><option value="cover">Cover</option><option value="contain">Contain</option></select></label>
           <label class="fmv-studio-label">Brand background colour<input name="background_color" type="color" value="#103f36"></label>
         </div><div id="fmv-website-preview" class="fmv-studio-preview"></div>
@@ -76,8 +76,12 @@
     document.addEventListener('click',click);
   }
   async function upload(id){
-    if(!$(id)?.files?.length)return '';
-    const asset=await api('/admin/content-media',{method:'POST',body:await FMV.readFile(id)});
+    const file=$(id)?.files?.[0];if(!file)return '';
+    const status=$('fmv-site-message');
+    const asset=await window.FMVUpload.upload(file,{onProgress:(sent,total)=>{
+      if(status)status.textContent='Uploading '+file.name+': '+Math.round(100*sent/total)+'%';
+    }});
+    if(status)status.textContent='Media uploaded and validated: '+file.name;
     return asset.id;
   }
   function renderSections(){
@@ -89,7 +93,7 @@
         <label class="fmv-studio-label">Visual style<select data-key="variant">${['feature','banner','quote','cta'].map(x=>`<option value="${x}" ${b.variant===x?'selected':''}>${x}</option>`).join('')}</select></label>
         <label class="fmv-studio-label">Headline<input required maxlength="160" data-key="title" value="${esc(b.title)}"></label>
       </div><label class="fmv-studio-label">Text<textarea data-key="body" rows="3" maxlength="1400">${esc(b.body)}</textarea></label>
-      <label class="fmv-studio-label">Optional new image / GIF / video<input id="fmv-block-media-${index}" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4"></label>
+      <label class="fmv-studio-label">Optional new image / GIF / video<input id="fmv-block-media-${index}" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4" data-media-max-bytes="50000000"><small>Max 50 MB • background upload in 2 MB parts</small></label>
       ${b.media_url?`<p class="fmv-small">Media: ${esc(b.media_url)}</p>`:''}
     </article>`).join('');
   }
