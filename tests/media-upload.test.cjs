@@ -82,3 +82,13 @@ test('Both marketing and website editors use the same resumable upload API',()=>
   assert.doesNotMatch(ads,/FMV\.readFile\('fmv-campaign-file'\)/);
   assert.doesNotMatch(website,/FMV\.readFile\('fmv-site-media'\)/);
 });
+
+
+test('Admins can inspect storage usage and remove only unused media assets',()=>{
+  const admin=fs.readFileSync('experience.js','utf8');
+  assert.match(admin,/\/admin\/content-media\/library/);
+  assert.match(admin,/data-admin-action="delete-unused-media"/);
+  assert.match(admin,/if\(!asset\|\|asset\.in_use\)return/);
+  assert.match(admin,/mediaLibrary\.map/);
+  assert.match(admin,/used_bytes/);
+});
