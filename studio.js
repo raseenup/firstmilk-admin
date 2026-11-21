@@ -173,7 +173,18 @@
       readSections();const blocks=[];
       for(let i=0;i<sections.length;i++){
         const b={...sections[i]};
-        if($('fmv-block-media-'+i)?.files?.length)b.media_id=await upload('fmv-block-media-'+i);
+        if($('fmv-block-media-'+i)?.files?.length){
+          b.media_id=await upload('fmv-block-media-'+i);
+          sections[i].media_id=b.media_id;
+          // Keep the media ID in the editor if a later API save fails.
+          const picker=$('fmv-site-sections').children[i]?.querySelector('[data-key="media_id"]');
+          if(picker && !Array.from(picker.options).some(option=>option.value===b.media_id)){
+            const option=document.createElement('option');
+            option.value=b.media_id;option.textContent='Newly uploaded library file';
+            picker.add(option);
+          }
+          if(picker)picker.value=b.media_id;
+        }
         delete b.media_type;delete b.media_url;blocks.push(b);
       }
       const chosenHero=$('fmv-site-saved-media').value;
