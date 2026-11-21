@@ -66,9 +66,38 @@
     try{window.FMVUpload.validate(file);}catch(error){FMV.notice(error.message,true);$('fmv-campaign-file').value='';return;}
     if(previewURL)URL.revokeObjectURL(previewURL);previewURL=URL.createObjectURL(file);mediaPreview(previewURL,file.type,file.name);
   }
+  function chooseLibraryMedia(id){
+    const asset=mediaLibrary.find(item=>item.id===id);
+    if(!asset || !/^MEDIA-[A-Za-z0-9_-]{8,100}$/.test(asset.id)){
+      FMV.notice('Media not found. Refresh the library and choose the video again.',true);
+      return;
+    }
+    // Link an already uploaded file instead of uploading a duplicate.
+    editCampaign();
+    const form=$('fmv-campaign-form');
+    mediaId=asset.id;
+    const isVideo=asset.mime_type==='video/mp4';
+    form.elements.title.value=isVideo?'First Milk Venture — Fresh Dairy':'First Milk Venture — Latest Promotion';
+    form.elements.description.value='Discover fresh dairy from First Milk Venture.';
+    form.elements.alt_text.value=isVideo?'First Milk Venture dairy promotional video':'First Milk Venture promotional artwork';
+    if(isVideo){
+      form.elements.placement.value='home';
+      form.elements.display_width.value='1200';
+      form.elements.display_height.value='686';
+      form.elements.media_fit.value='contain';
+    }
+    mediaPreview(FMV.apiBase+'/media/campaign/'+encodeURIComponent(asset.id),asset.mime_type,asset.filename);
+    const status=$('fmv-campaign-upload-status');
+    status.hidden=false;
+    $('fmv-campaign-upload-text').textContent='Existing file selected. Ready to publish without uploading it again.';
+    $('fmv-campaign-upload-progress').value=100;
+    FMV.notice('Video selected from your media library. Review the title and press Upload & publish.');
+  }
   function editCampaign(id){
     const item=campaigns.find(c=>c.id===id);editing=item || null;mediaId=item?.media_id || '';
     const form=$('fmv-campaign-form');form.reset();form.hidden=false;
+    $('fmv-campaign-upload-status').hidden=true;
+    if(previewURL){URL.revokeObjectURL(previewURL);previewURL='';}
     $('fmv-campaign-form-title').textContent=item?'Edit campaign':'New campaign';
     if(item){
       for(const key of ['title','description','kind','placement','status','alt_text','animation','cta_label','cta_path','terms','sort_order'])form.elements[key].value=item[key];
@@ -83,6 +112,22 @@
   async function saveCampaign(event){
     event.preventDefault();if(busy)return;busy=true;const form=event.currentTarget,button=form.querySelector('[type=submit]');button.disabled=true;button.textContent='Saving…';
     try{
+      // Validate edits before transferring large files. A removed campaign is
+      // not editable; preserve the form and allow an explicit new publish.
+      if(editing){
+        const latest=await FMV.request('/admin/content');
+        const existing=(latest.campaigns||[]).find(item=>item.id===editing.id);
+        if(!existing){
+          editing=null;
+          $('fmv-campaign-form-title').textContent='New campaign';
+          FMV.notice('The original campaign was removed. Your details and selected media are preserved. Press publish again to create a new campaign.',true);
+          return;
+        }
+        if(existing.version!==editing.version){
+          FMV.notice('Another editor changed this campaign. Refresh the campaigns list before saving.',true);
+          return;
+        }
+      }
       if($('fmv-campaign-file').files?.length){
         const file=$('fmv-campaign-file').files[0];
         const progressBox=$('fmv-campaign-upload-status');
@@ -97,12 +142,18 @@
         }});
         caption.textContent='Upload validated. Publishing promotion…';
         mediaId=asset.id;
+        // The binary has finished uploading. A failed campaign publish must
+        // not upload this file again on retry (which wastes free storage).
+        $('fmv-campaign-file').value='';
+        mediaPreview(FMV.apiBase+'/media/campaign/'+encodeURIComponent(asset.id),asset.mime_type,file.name);
+        caption.textContent='Upload complete. Ready to publish or retry without re-upload.';
+        progress.value=100;
       }
       const body=Object.fromEntries(['title','description','kind','placement','status','alt_text','animation','cta_label','cta_path','terms'].map(k=>[k,form.elements[k].value.trim()]));
       body.display_width=Number(form.elements.display_width.value);body.display_height=Number(form.elements.display_height.value);body.media_fit=form.elements.media_fit.value;body.media_id=mediaId;body.sort_order=Number(form.elements.sort_order.value);body.version=editing?.version || null;
       for(const key of ['starts_at','ends_at'])body[key]=form.elements[key].value?new Date(form.elements[key].value).toISOString():'';
       await FMV.request('/admin/content'+(editing?'/'+encodeURIComponent(editing.id):''),{method:editing?'PATCH':'POST',body});
-      form.hidden=true;FMV.notice(body.status==='draft'?'Draft saved.':'Published. Customers will see the update automatically.');await refreshCampaigns();
+      form.hidden=true;editing=null;mediaId='';FMV.notice(body.status==='draft'?'Draft saved.':'Published. Customers will see the update automatically.');await refreshCampaigns();await loadMediaLibrary();
     }catch(error){FMV.notice(error.message,true);}finally{busy=false;button.disabled=false;button.textContent=form.elements.status.value==='draft'?'Upload & save draft':'Upload & publish';}
   }
   async function refreshCampaigns(){
@@ -125,6 +176,8 @@
       <span class="fmv-media-file-icon" aria-hidden="true">${asset.mime_type==='video/mp4'?'▶':'▣'}</span>
       <div class="fmv-ad-media-details"><strong>${e(asset.filename||'Marketing media')}</strong>
         <small>${e(asset.mime_type)} · ${pretty(asset.size)}</small></div>
+      <button type="button" class="fmv-btn" data-admin-action="use-library-media"
+        data-id="${e(asset.id)}">Use in new ad</button>
       ${asset.in_use?'<span class="fmv-publish-tag">In use</span>':
         `<button type="button" class="fmv-btn secondary" data-admin-action="delete-unused-media"
           data-id="${e(asset.id)}">Remove unused</button>`}
@@ -157,8 +210,9 @@
     const button=event.target.closest('[data-admin-action]');if(!button || button.disabled)return;
     const action=button.dataset.adminAction,id=button.dataset.id;
     if(action==='new-campaign' || action==='edit-campaign'){editCampaign(id);return;}
-    if(action==='cancel-campaign'){$('fmv-campaign-form').hidden=true;return;}
-    if(action==='remove-media'){mediaId='';$('fmv-campaign-file').value='';mediaPreview('');return;}
+    if(action==='cancel-campaign'){$('fmv-campaign-form').hidden=true;editing=null;mediaId='';return;}
+    if(action==='use-library-media'){chooseLibraryMedia(id);return;}
+    if(action==='remove-media'){mediaId='';$('fmv-campaign-file').value='';$('fmv-campaign-upload-status').hidden=true;mediaPreview('');return;}
     if(action==='copy-invitation'){
       try{await navigator.clipboard.writeText($('fmv-invitation-code').value);FMV.notice('Private invitation copied.');}catch(error){$('fmv-invitation-code').select();FMV.notice('Select and copy the private code.');}return;
     }
