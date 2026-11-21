@@ -10,3 +10,14 @@
 .fmv-private-invite{padding:24px;border:1px solid #dbc58d;background:#fff8e8;border-radius:18px;margin-bottom:30px}.fmv-private-invite label{display:grid;gap:8px;font-size:13px;margin:15px 0}.fmv-private-invite input{padding:13px;border:1px solid #d8c698;border-radius:10px;width:100%;font:13px monospace;background:#fff}.fmv-private-invite p{font-size:14px;color:#7b7055;margin:12px 0}.fmv-invitation-panel h4{font-size:20px;font-weight:800;margin:32px 0 14px}.fmv-invitation-panel .fmv-row>div{min-width:0;overflow-wrap:anywhere}
 .fmv-company-pages{margin-top:35px;border-top:1px solid #dce6d9;padding-top:25px}.fmv-company-pages summary{font-size:19px;font-weight:750;cursor:pointer;padding:12px 0}
 @media(max-width:700px){.fmv-editor-heading{flex-direction:column;gap:15px}.fmv-editor-columns,.fmv-admin-campaign-grid{grid-template-columns:1fr}.fmv-editor-form{padding:18px}.fmv-invitation-panel .fmv-row{align-items:flex-start;flex-wrap:wrap}.fmv-private-invite{padding:18px}.fmv-editor-heading h3{font-size:22px}#fmv-admin-nav{grid-auto-columns:minmax(84px,1fr)}.fmv-admin-campaign-copy{padding:18px}}
+
+/* The marketing media library is a persistent source of reusable files. */
+.fmv-library-upload-panel{display:grid;gap:12px;margin:18px 0 22px;padding:17px;border-radius:17px;border:1px solid #bcdcca;background:linear-gradient(125deg,#f3fbf5,#e8f5f1)}
+.fmv-library-upload-panel>label{font-weight:800;font-size:14px;color:#164d3c}
+.fmv-library-upload-panel input[type=file]{display:block;width:100%;min-width:0;padding:12px;border:1px dashed #91b5a4;border-radius:12px;background:#fff;color:#174839;font:inherit}
+.fmv-library-upload-panel>.fmv-btn{justify-self:start;min-height:45px}
+.fmv-library-upload-panel .fmv-media-upload-state{width:100%}
+.fmv-ad-media-item{min-width:0;flex-wrap:wrap;gap:12px}
+.fmv-ad-media-details{min-width:0;flex:1 1 170px;overflow-wrap:anywhere}
+.fmv-ad-media-item .fmv-btn{font-size:12px;min-height:39px;padding:9px 12px;white-space:normal;text-align:center}
+@media(max-width:640px){.fmv-library-upload-panel{padding:13px}.fmv-ad-media-item .fmv-btn{flex:1 1 138px}}
