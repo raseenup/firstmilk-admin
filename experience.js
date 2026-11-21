@@ -56,7 +56,7 @@
   function mediaPreview(url,mime,title){
     $('fmv-campaign-preview').replaceChildren();if(!url)return;
     const element=document.createElement(mime==='video/mp4'?'video':'img');
-    if(element instanceof HTMLVideoElement){element.controls=true;element.muted=true;element.playsInline=true;element.preload='metadata';}else element.alt=title || 'Campaign preview';
+    if(element instanceof HTMLVideoElement){element.controls=false;element.muted=true;element.loop=true;element.autoplay=true;element.playsInline=true;element.preload='none';element.disablePictureInPicture=true;}else element.alt=title || 'Campaign preview';
     element.src=url;
     $('fmv-campaign-preview').append(element);
   }
@@ -108,7 +108,7 @@
   async function refreshCampaigns(){
     if(!mayPublish())return;
     const result=await FMV.request('/admin/content');campaigns=result.campaigns;
-    $('fmv-campaign-list').innerHTML=campaigns.slice().sort((a,b)=>a.sort_order-b.sort_order).map(c=>`<article class="fmv-admin-campaign"><div class="fmv-admin-campaign-media">${c.media_url?(c.mime_type==='video/mp4'?`<video src="${e(FMV.apiBase+c.media_url)}" controls muted preload="metadata" aria-label="${e(c.title)}"></video>`:`<img src="${e(FMV.apiBase+c.media_url)}" alt="${e(c.alt_text || c.title)}" loading="lazy">`):'<span aria-hidden="true">FMV.</span>'}</div><div class="fmv-admin-campaign-copy"><span class="fmv-publish-tag" data-state="${e(c.status)}">${e(c.status)} · ${e(c.placement)} · ${Number(c.display_width) || 1200} × ${Number(c.display_height) || 300}px</span><h4>${e(c.title)}</h4><p>${e(c.description)}</p><div class="fmv-flex"><button class="fmv-btn" data-admin-action="edit-campaign" data-id="${e(c.id)}">Edit</button><button class="fmv-btn secondary" data-admin-action="toggle-campaign" data-id="${e(c.id)}">${c.status==='published'?'Unpublish':'Publish'}</button><button class="fmv-btn danger" data-admin-action="delete-campaign" data-id="${e(c.id)}">Remove</button></div></div></article>`).join('') || FMV.empty('No campaigns yet. Choose Add ad or post to publish your first banner.');
+    $('fmv-campaign-list').innerHTML=campaigns.slice().sort((a,b)=>a.sort_order-b.sort_order).map(c=>`<article class="fmv-admin-campaign"><div class="fmv-admin-campaign-media">${c.media_url?(c.mime_type==='video/mp4'?`<video src="${e(FMV.apiBase+c.media_url)}" muted loop autoplay playsinline preload="none" disablepictureinpicture disableremoteplayback aria-label="${e(c.title)}"></video>`:`<img src="${e(FMV.apiBase+c.media_url)}" alt="${e(c.alt_text || c.title)}" loading="lazy">`):'<span aria-hidden="true">FMV.</span>'}</div><div class="fmv-admin-campaign-copy"><span class="fmv-publish-tag" data-state="${e(c.status)}">${e(c.status)} · ${e(c.placement)} · ${Number(c.display_width) || 1200} × ${Number(c.display_height) || 300}px</span><h4>${e(c.title)}</h4><p>${e(c.description)}</p><div class="fmv-flex"><button class="fmv-btn" data-admin-action="edit-campaign" data-id="${e(c.id)}">Edit</button><button class="fmv-btn secondary" data-admin-action="toggle-campaign" data-id="${e(c.id)}">${c.status==='published'?'Unpublish':'Publish'}</button><button class="fmv-btn danger" data-admin-action="delete-campaign" data-id="${e(c.id)}">Remove</button></div></div></article>`).join('') || FMV.empty('No campaigns yet. Choose Add ad or post to publish your first banner.');
   }
 
   async function loadMediaLibrary(){
