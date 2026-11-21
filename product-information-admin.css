@@ -1,0 +1,39 @@
+/* First Milk Venture — admin product content studio */
+.fmv-info-panel{padding:22px;border:1px solid #cfe4da;border-radius:20px;background:linear-gradient(140deg,#fff,#f5fbf8)}
+.fmv-info-title{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.fmv-info-title h3{font-size:19px;font-weight:800;color:#164537;margin:4px 0 6px}
+.fmv-info-title p{font-size:12px;color:#526d61;line-height:1.55;max-width:590px}
+.fmv-info-eyebrow{font-size:10px;font-weight:850;letter-spacing:.12em;color:#0a8463}
+.fmv-info-products{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin-top:19px}
+.fmv-info-product{display:flex;flex-direction:column;gap:13px;border:1px solid #d9ebe1;border-radius:14px;padding:14px;background:#fff;min-width:0}
+.fmv-info-product strong{font-size:14px;color:#143d33;display:block}
+.fmv-info-product small{font-size:11px;color:#597267;line-height:1.6;overflow-wrap:anywhere;display:block;margin-top:5px}
+.fmv-info-product button{align-self:flex-start}
+.fmv-info-dialog{width:min(900px,calc(100vw - 20px));max-width:900px;max-height:94dvh;padding:0;border:none;border-radius:22px;box-shadow:0 25px 85px #0526258c;color:#173d32;background:#fff;overflow:hidden}
+.fmv-info-dialog::backdrop{background:#092526b8;backdrop-filter:blur(5px)}
+.fmv-info-dialog-content{display:flex;flex-direction:column;max-height:94dvh}
+.fmv-info-dialog-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:19px 23px;background:linear-gradient(120deg,#e7f7ee,#f1f8ff);border-bottom:1px solid #cee4d8}
+.fmv-info-dialog-header h2{font-size:21px;font-weight:850;color:#123c31;margin:4px 0}
+.fmv-info-dialog-header p{font-size:12px;color:#4a6b5d}
+.fmv-info-close{display:grid;place-items:center;min-width:44px;height:44px;border-radius:11px;background:#fff;border:1px solid #cae0d3;font-size:29px;color:#16473a;cursor:pointer}
+#fmv-info-form{display:flex;flex-direction:column;min-height:0}
+.fmv-info-dialog-body{min-height:0;overflow:auto;padding:7px 24px 25px;overscroll-behavior:contain}
+.fmv-info-section{border-bottom:1px solid #e3ede7;padding:20px 0}
+.fmv-info-section h3{font-size:17px;font-weight:800;color:#174b3b;margin:0 0 8px}
+.fmv-info-section p{color:#607c6e;font-size:12px;margin:0 0 14px;line-height:1.55}
+.fmv-info-section textarea,.fmv-info-section input{width:100%;min-width:0;background:#fff;border:1px solid #c9ddd1;border-radius:10px;padding:11px;font:inherit;font-size:13px;line-height:1.55;color:#173f34}
+.fmv-info-section textarea{resize:vertical}
+.fmv-info-section textarea:focus,.fmv-info-section input:focus{outline:2px solid #67b99d;outline-offset:1px}
+.fmv-info-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.fmv-info-field,.fmv-info-row label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fmv-info-field span,.fmv-info-row label span{color:#446659;font-size:12px;font-weight:730}
+.fmv-info-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.fmv-info-row{display:flex;align-items:flex-end;gap:10px;background:#f4faf7;border:1px solid #e2efe8;border-radius:12px;padding:10px}
+.fmv-info-row label{flex:1}
+.fmv-info-remove{flex-shrink:0;color:#ad3c3c;border:1px solid #efc5c5;background:#fff;border-radius:9px;font-size:11px;padding:10px;cursor:pointer}
+.fmv-info-warning{background:#eef7ff;color:#335978!important;padding:14px;border-left:3px solid #3495c5;border-radius:10px}
+.fmv-info-error{font-size:12px;color:#b42318;background:#fff2f1;border-radius:10px;padding:10px;min-height:20px}
+.fmv-info-error:empty{display:none}
+.fmv-info-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:12px;padding:15px 22px calc(15px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #dfece4;z-index:1}
+.fmv-info-actions button{min-height:46px}
+@media(max-width:640px){.fmv-info-title{flex-direction:column}.fmv-info-dialog{width:100%;max-width:100%;height:100dvh;max-height:100dvh;border-radius:0;margin:0}.fmv-info-dialog-content{height:100dvh;max-height:100dvh}.fmv-info-dialog-body{padding:4px 14px 22px}.fmv-info-dialog-header{padding:13px 15px}.fmv-info-dialog-header h2{font-size:18px}.fmv-info-fields{grid-template-columns:1fr}.fmv-info-row{flex-wrap:wrap}.fmv-info-row label{flex:1 1 140px}.fmv-info-actions{padding:12px}}
