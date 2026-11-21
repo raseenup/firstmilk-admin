@@ -3,14 +3,19 @@
   'use strict';
   const MAX_FILE=50_000_000;
   const SIZE=2_000_000;
-  const allowed=new Set(['image/jpeg','image/png','image/gif','image/webp','video/mp4']);
-  const extensions=/\.(?:jpe?g|png|gif|webp|mp4)$/i;
+  const allowed={
+    'image/jpeg':/\\.jpe?g$/i,
+    'image/png':/\\.png$/i,
+    'image/gif':/\\.gif$/i,
+    'image/webp':/\\.webp$/i,
+    'video/mp4':/\\.mp4$/i
+  };
   const pause=(delay)=>new Promise(resolve=>setTimeout(resolve,delay));
   function validate(file){
     if(!(file instanceof File) || !file.size)throw new Error('Choose an image or video to upload.');
     if(file.size>MAX_FILE)throw new Error('Maximum 50 MB per promotion image or video.');
-    if(!allowed.has(file.type)||!extensions.test(file.name))
-      throw new Error('Use JPG, PNG, GIF, WebP or MP4. Other media types are not supported.');
+    if(!allowed[file.type] || !allowed[file.type].test(file.name))
+      throw new Error('Use JPG, PNG, GIF, WebP or MP4 with matching file extension and MIME type.');
   }
   async function request(path,{method='GET',body,token,signal,binary=false}={}){
     if(!token || token!==FMV.token)throw new Error('Your sign-in session changed. Sign in again to upload.');
