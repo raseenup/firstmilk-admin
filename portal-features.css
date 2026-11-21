@@ -108,3 +108,17 @@ body[data-portal="admin"] #fmv-admin-nav button[hidden]{display:none!important}
 [data-theme="dark"] .fmv-quality-overview span{color:#dcefe2}
 [data-theme="dark"] .fmv-quality-pill{background:#274c3b;color:#dff7e4;border-color:#558b64}
 [data-theme="dark"] .fmv-quality-warning{background:#49391e;color:#ffe8bf}
+
+/* 50 MB campaign/website media upload: responsive progress without layout shifts. */
+.fmv-media-upload-state{display:grid;gap:.55rem;margin:.7rem 0 1rem;padding:.85rem 1rem;
+ border-radius:.85rem;background:var(--fmv-surface-soft,#e9f7ee);border:1px solid #afdbc7;
+ color:var(--fmv-ink,#144d38);font-size:.84rem;font-weight:700}
+.fmv-media-upload-state[hidden]{display:none}
+.fmv-media-upload-state progress{width:100%;height:13px;border:none;border-radius:100px;
+ accent-color:#058469;overflow:hidden;background:#cbdfd4}
+.fmv-media-upload-state progress::-webkit-progress-bar{background:#cbdfd4;border-radius:100px}
+.fmv-media-upload-state progress::-webkit-progress-value{
+ background:linear-gradient(90deg,#148d69,#35bd8f);border-radius:100px}
+.fmv-media-upload-state progress::-moz-progress-bar{
+ background:linear-gradient(90deg,#148d69,#35bd8f);border-radius:100px}
+[data-theme="dark"] .fmv-media-upload-state{background:#1c3f32;color:#e7f8ef;border-color:#427b5e}
