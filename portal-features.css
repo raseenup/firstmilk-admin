@@ -108,3 +108,36 @@ body[data-portal="admin"] #fmv-admin-nav button[hidden]{display:none!important}
 [data-theme="dark"] .fmv-quality-overview span{color:#dcefe2}
 [data-theme="dark"] .fmv-quality-pill{background:#274c3b;color:#dff7e4;border-color:#558b64}
 [data-theme="dark"] .fmv-quality-warning{background:#49391e;color:#ffe8bf}
+
+/* 50 MB campaign/website media upload: responsive progress without layout shifts. */
+.fmv-media-upload-state{display:grid;gap:.55rem;margin:.7rem 0 1rem;padding:.85rem 1rem;
+ border-radius:.85rem;background:var(--fmv-surface-soft,#e9f7ee);border:1px solid #afdbc7;
+ color:var(--fmv-ink,#144d38);font-size:.84rem;font-weight:700}
+.fmv-media-upload-state[hidden]{display:none}
+.fmv-media-upload-state progress{width:100%;height:13px;border:none;border-radius:100px;
+ accent-color:#058469;overflow:hidden;background:#cbdfd4}
+.fmv-media-upload-state progress::-webkit-progress-bar{background:#cbdfd4;border-radius:100px}
+.fmv-media-upload-state progress::-webkit-progress-value{
+ background:linear-gradient(90deg,#148d69,#35bd8f);border-radius:100px}
+.fmv-media-upload-state progress::-moz-progress-bar{
+ background:linear-gradient(90deg,#148d69,#35bd8f);border-radius:100px}
+[data-theme="dark"] .fmv-media-upload-state{background:#1c3f32;color:#e7f8ef;border-color:#427b5e}
+
+/* Admin media library: small metadata cards, no auto-loaded 50MB thumbnails. */
+.fmv-ad-media-library{display:grid;gap:.8rem;padding:1rem;margin-top:1.25rem;
+ border:1px solid #b5d6c6;border-radius:1.2rem;background:var(--fmv-surface,#fff)}
+.fmv-ad-media-library h4{font-weight:850;font-size:1.1rem}
+.fmv-ad-media-items{display:grid;gap:.6rem}
+.fmv-ad-media-item{display:flex;align-items:center;gap:.75rem;
+ border:1px solid #d0e7d8;padding:.7rem;border-radius:.85rem;background:#f2faf4}
+.fmv-media-file-icon{width:37px;height:37px;border-radius:.65rem;display:grid;
+ place-items:center;font-size:1.1rem;background:#d0f1de;color:#12684a;flex-shrink:0}
+.fmv-ad-media-details{flex:1;min-width:0;display:grid;gap:.25rem}
+.fmv-ad-media-details strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.89rem}
+.fmv-ad-media-details small{font-size:.75rem;opacity:.72}
+.fmv-ad-media-item .fmv-btn{font-size:.77rem;min-height:38px;padding:.45rem .65rem}
+[data-theme="dark"] .fmv-ad-media-library{background:#1c3230;border-color:#417b60}
+[data-theme="dark"] .fmv-ad-media-item{background:#29433a;border-color:#4d765d}
+[data-theme="dark"] .fmv-media-file-icon{background:#31664a;color:#dff9e8}
+@media(max-width:450px){.fmv-ad-media-item{flex-wrap:wrap}
+.fmv-ad-media-item .fmv-btn{margin-left:45px}}
