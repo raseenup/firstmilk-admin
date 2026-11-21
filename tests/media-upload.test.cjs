@@ -92,3 +92,15 @@ test('Admins can inspect storage usage and remove only unused media assets',()=>
   assert.match(admin,/mediaLibrary\.map/);
   assert.match(admin,/used_bytes/);
 });
+
+test('Existing media can be attached without uploading a duplicate, and deleted campaigns recover',()=>{
+  const ads=fs.readFileSync('experience.js','utf8');
+  assert.match(ads,/data-admin-action="use-library-media"/);
+  assert.match(ads,/function chooseLibraryMedia\(id\)/);
+  assert.match(ads,/mediaId=asset\.id/);
+  assert.match(ads,/const existing=\(latest\.campaigns\|\|\[\]\)\.find/);
+  assert.match(ads,/if\(!existing\)/);
+  assert.match(ads,/editing=null/);
+  assert.match(ads,/\$\('fmv-campaign-file'\)\.value='';\s*mediaPreview/);
+  assert.match(ads,/await refreshCampaigns\(\);await loadMediaLibrary\(\)/);
+});
