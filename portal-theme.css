@@ -24,3 +24,7 @@ body[data-portal=admin] .admin-main .text-gray-400,body[data-portal=admin] .admi
 
 /* Keep bottom navigation labels readable at every viewport size. */
 body[data-portal="admin"] #fmv-admin-nav button { font-size:11px; }
+
+/* Branded media stays visually clean: promotional video playback has no native controls. */
+body[data-portal="admin"] #fmv-campaign-preview video{pointer-events:none;user-select:none;-webkit-user-select:none;}
+body[data-portal="admin"] #fmv-campaign-preview video::-webkit-media-controls,body[data-portal="admin"] #fmv-campaign-preview video::-webkit-media-controls-start-playback-button{display:none!important;}
