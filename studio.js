@@ -38,6 +38,9 @@
           <label class="fmv-studio-label">Media fit<select name="media_fit"><option value="cover">Cover</option><option value="contain">Contain</option></select></label>
           <label class="fmv-studio-label">Brand background colour<input name="background_color" type="color" value="#103f36"></label>
         </div><div id="fmv-website-preview" class="fmv-studio-preview"></div>
+        <div id="fmv-website-upload-state" class="fmv-media-upload-state" role="status" hidden>
+          <span id="fmv-website-upload-text">Ready to upload</span><progress id="fmv-website-upload-progress" max="100" value="0"></progress>
+        </div>
         <h4>Custom website sections</h4><p>Add any number of new content sections up to 24, with optional artwork and location on the homepage or Careers.</p>
         <button type="button" class="fmv-btn secondary" data-studio="add-block">+ Add website section</button>
         <div id="fmv-site-sections"></div>
@@ -78,8 +81,14 @@
   async function upload(id){
     const file=$(id)?.files?.[0];if(!file)return '';
     const status=$('fmv-site-message');
+    const box=$('fmv-website-upload-state'),progress=$('fmv-website-upload-progress');
+    const caption=$('fmv-website-upload-text');
+    box.hidden=false;progress.value=0;
     const asset=await window.FMVUpload.upload(file,{onProgress:(sent,total)=>{
-      if(status)status.textContent='Uploading '+file.name+': '+Math.round(100*sent/total)+'%';
+      const percent=Math.round(100*sent/total);
+      if(status)status.textContent='Uploading '+file.name+': '+percent+'%';
+      if(caption)caption.textContent=file.name+' · '+percent+'% uploaded';
+      if(progress)progress.value=percent;
     }});
     if(status)status.textContent='Media uploaded and validated: '+file.name;
     return asset.id;
