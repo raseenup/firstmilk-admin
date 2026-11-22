@@ -41,7 +41,7 @@ function tube(x,y,z,rb,rt,h,t,seg){
   var a=2*Math.PI*i/num,b=2*Math.PI*(i+1)/num;
   var v0=[x+rb*Math.cos(a),a0,z+rb*Math.sin(a)],v1=[x+rb*Math.cos(b),a0,z+rb*Math.sin(b)];
   var v2=[x+rt*Math.cos(b),a1,z+rt*Math.sin(b)],v3=[x+rt*Math.cos(a),a1,z+rt*Math.sin(a)];
-  face(v0,v1,v2,v3,c);tri([x,a1,z],v3,v2,[0,1,0],c);tri([x,a0,z],v1,v0,[0,-1,0],c);
+  face(v1,v0,v3,v2,c);tri([x,a1,z],v2,v3,[0,1,0],c);tri([x,a0,z],v0,v1,[0,-1,0],c);
  }
 }
 function ring(x,y,z,r,thick,t){
