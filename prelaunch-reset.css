@@ -1,23 +1,51 @@
-/* First Milk Venture Launch Reset – scoped to the Super Admin overview */
-.fmv-launch-reset-panel {margin-top:24px;padding:26px;border:1px solid #bbd3cb;border-radius:22px;background:linear-gradient(145deg,#f7fdfb,#eef5fb);box-shadow:0 10px 28px #123c3414;}
-.fmv-launch-reset-header{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
-.fmv-launch-reset-header h3{font-size:1.45rem;font-weight:800;color:#113b35;margin:4px 0 8px}
-.fmv-launch-reset-header p{max-width:750px;color:#50675f;line-height:1.6}
-.fmv-launch-reset-status{background:#e6f1ed;color:#205742;padding:8px 12px;border-radius:999px;font-weight:700;font-size:12px}
-.fmv-launch-reset-warning{color:#8c3c26!important;border-inline-start:3px solid #bb6842;background:#fff2e5;padding:13px;border-radius:9px;margin:16px 0;line-height:1.6}
-.fmv-launch-reset-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
-.fmv-launch-reset-counts{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
-.fmv-launch-reset-count{border:1px solid #c8dcd4;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px;color:#285547}
-.fmv-launch-reset-check,.fmv-launch-reset-label{display:block;margin:16px 0;color:#254a3e;font-weight:600;line-height:1.5}
-.fmv-launch-reset-check input{margin-inline-end:8px}
-.fmv-launch-reset-label input{display:block;width:min(100%,560px);margin-top:8px;min-height:45px;border:1px solid #a9c8ba;border-radius:10px;background:#fff;padding:11px}
-.fmv-launch-reset-panel .fmv-btn[disabled]{opacity:.45;cursor:not-allowed}
-#fmv-launch-reset-results h4{font-weight:750;margin-top:12px;color:#173a30}
-#fmv-launch-reset-results p{font-size:13px;margin:6px 0}
-#fmv-launch-reset-message{margin-top:14px;font-size:13px;font-weight:650}
-@media(max-width:590px){.fmv-launch-reset-panel{padding:16px}.fmv-launch-reset-actions .fmv-btn{width:100%}}
-:root[data-theme="dark"] .fmv-launch-reset-panel {background:#16302f!important;border-color:#4e756a!important}
-:root[data-theme="dark"] .fmv-launch-reset-panel :is(h3,h4,.fmv-launch-reset-check,.fmv-launch-reset-label){color:#e7fff4!important}
-:root[data-theme="dark"] .fmv-launch-reset-panel :is(p,.fmv-launch-reset-count){color:#d6eee7!important}
-:root[data-theme="dark"] .fmv-launch-reset-count{background:#25433e;border-color:#587469}
-:root[data-theme="dark"] .fmv-launch-reset-warning{background:#442b24;color:#ffe0ca!important}
+/* First Milk Venture • Super Admin Launch Reset • single-action confirmation */
+.fmv-launch-reset-panel{
+  margin-top:24px;padding:24px;border:1px solid #bbd3cb;border-radius:22px;
+  background:linear-gradient(145deg,#f7fdfb,#eef5fb);box-shadow:0 10px 28px #123c3414;
+}
+.fmv-launch-reset-header h3{font-size:1.4rem;font-weight:800;color:#113b35;margin:4px 0 8px}
+.fmv-launch-reset-header p{max-width:720px;color:#50675f;line-height:1.65}
+.fmv-launch-reset-main{min-height:48px;margin-top:18px;padding:12px 20px;font-weight:750}
+#fmv-launch-reset-message{margin-top:14px;font-size:13px;font-weight:650;color:#225c45}
+#fmv-launch-reset-message[data-level=error]{color:#a02b2b}
+.fmv-launch-reset-modal{
+  position:fixed;inset:0;margin:auto;width:min(94vw,570px);max-width:570px;
+  max-height:min(86dvh,740px);overflow-y:auto;padding:0;
+  border:1px solid #ead3cb;border-radius:23px;background:#fffaf7;color:#213b35;
+  box-shadow:0 24px 70px #132c2c4d;overscroll-behavior:contain;
+}
+.fmv-launch-reset-modal::backdrop{background:#071f20ba;backdrop-filter:blur(5px)}
+.fmv-launch-reset-modal-content{padding:26px}
+.fmv-launch-reset-alert-icon{
+  display:grid;place-items:center;width:46px;height:46px;margin-bottom:12px;
+  background:#ffeddd;color:#a43e29;border-radius:14px;font-size:25px;font-weight:900;
+}
+.fmv-launch-reset-modal h3{font-size:23px;line-height:1.25;font-weight:850;color:#8e3028;margin:0 0 12px}
+.fmv-launch-reset-warning-details{line-height:1.65;color:#39554c;font-size:13px}
+.fmv-launch-reset-warning-details h4{margin:14px 0 5px;font-size:13px;font-weight:750;color:#234a40}
+.fmv-launch-reset-warning-text{border-left:3px solid #c45535;padding:10px 12px;background:#fff0e5;color:#6a3026;border-radius:8px}
+.fmv-launch-reset-counts{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.fmv-launch-reset-count{border:1px solid #e1d6cb;background:#fff;padding:7px 9px;border-radius:9px;font-size:12px}
+.fmv-launch-reset-stock{padding-left:19px}
+.fmv-launch-reset-blockers{margin-top:14px;padding:12px;background:#fff0e5;color:#902b21;border-radius:10px}
+.fmv-launch-reset-choice{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+.fmv-launch-reset-choice button{min-height:48px;font-size:14px;font-weight:750}
+.fmv-launch-reset-choice button:disabled{opacity:.48;cursor:not-allowed}
+.fmv-launch-reset-modal :focus-visible,.fmv-launch-reset-main:focus-visible{outline:3px solid #267d69;outline-offset:3px}
+:root[data-theme=dark] .fmv-launch-reset-panel{background:#15302d!important;border-color:#456e61!important}
+:root[data-theme=dark] .fmv-launch-reset-panel h3{color:#eafff5!important}
+:root[data-theme=dark] .fmv-launch-reset-panel p{color:#d9eae4!important}
+:root[data-theme=dark] #fmv-launch-reset-message[data-level=error]{color:#ffb6ad!important}
+:root[data-theme=dark] .fmv-launch-reset-modal{background:#17302d!important;color:#effaf4!important;border-color:#66857a!important}
+:root[data-theme=dark] .fmv-launch-reset-modal :is(h3,h4){color:#f5d1be!important}
+:root[data-theme=dark] .fmv-launch-reset-warning-details{color:#e0efe8!important}
+:root[data-theme=dark] .fmv-launch-reset-warning-text,:root[data-theme=dark] .fmv-launch-reset-blockers{
+  color:#ffe2ce!important;background:#4b2f2c!important
+}
+:root[data-theme=dark] .fmv-launch-reset-count{background:#234741!important;border-color:#53776c!important}
+@media(max-width:580px){
+  .fmv-launch-reset-panel{padding:16px}
+  .fmv-launch-reset-main{width:100%}
+  .fmv-launch-reset-modal-content{padding:20px}
+  .fmv-launch-reset-choice{gap:8px}
+}
