@@ -107,8 +107,15 @@
     working = true;
     update();
     const details = $('fmv-launch-reset-warning-details');
-    details.insertAdjacentHTML('beforeend',
-      '<p id="fmv-launch-reset-progress" role="status">Starting confidential archive download and verifying the reset authorization…</p>');
+    let progress = $('fmv-launch-reset-progress');
+    if (!progress) {
+      progress = document.createElement('p');
+      progress.id = 'fmv-launch-reset-progress';
+      progress.setAttribute('role', 'status');
+      details.append(progress);
+    }
+    progress.textContent = 'Checking authorization and the confidential archive…';
+    let resetCommitted = false;
     try {
       // All required safety checks are repeated on the backend before deletion.
       const latest = await FMV.request('/admin/prelaunch-reset/preview');
@@ -140,17 +147,26 @@
           inventory_acknowledged: true
         }
       });
+      resetCommitted = true;
       currentPreview = {completed: true, can_reset: false};
       working = false;
       closeWarning();
       status(result.message || 'Eligible test dispatch and accounting data reset successfully.');
       update();
-      await refreshAdmin();
+      try { await refreshAdmin(); }
+      catch (refreshError) {
+        status('Reset completed. Refresh the dashboard to update the displayed totals.');
+      }
     } catch (error) {
-      status('Reset not completed: ' + (error?.message || 'Unknown error.'), true);
-      const progress = $('fmv-launch-reset-progress');
-      if (progress) progress.textContent = 'Reset not completed. Review the warning or choose No.';
-      currentPreview = null; backupExported = false; // Require fresh preview after errors.
+      if (resetCommitted) {
+        status('Reset completed. Refresh the dashboard for the latest totals.');
+      } else {
+        status('Reset was not confirmed: ' + (error?.message || 'Unknown error.') +
+          ' Check the admin dashboard before retrying.', true);
+        const progressNode = $('fmv-launch-reset-progress');
+        if (progressNode) progressNode.textContent = 'No confirmed reset. Review the warning or choose No.';
+        currentPreview = null; backupExported = false;
+      }
     } finally {
       working = false;
       update();
