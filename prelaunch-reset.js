@@ -21,6 +21,7 @@
   function resetReady() {
     return authorised() && !!preview?.can_reset && exported && !!ticket &&
       $('fmv-launch-reset-ack').checked &&
+      (!Object.keys(preview.restore_stock || {}).length || $('fmv-launch-reset-stock-ack').checked) &&
       $('fmv-launch-reset-phrase').value.trim() === preview.phrase;
   }
   function updateButtons() {
@@ -32,6 +33,7 @@
         (id.endsWith('run') && !resetReady());
     }
     $('fmv-launch-reset-ack')?.toggleAttribute('disabled', !exported || !ticket || busy);
+    $('fmv-launch-reset-stock-ack')?.toggleAttribute('disabled', !exported || !ticket || busy || !Object.keys(preview?.restore_stock || {}).length);
     $('fmv-launch-reset-phrase')?.toggleAttribute('disabled', !exported || !ticket || busy);
   }
   function formatCounts(data) {
@@ -42,6 +44,7 @@
   function showPreview(data) {
     preview = data; exported = false; ticket = null;
     $('fmv-launch-reset-ack').checked = false;
+    $('fmv-launch-reset-stock-ack').checked = false;
     $('fmv-launch-reset-phrase').value = '';
     $('fmv-launch-reset-results').innerHTML =
       '<h4>Records in scope (preview only)</h4><div class="fmv-launch-reset-counts">'+formatCounts(data.counts)+'</div>' +
@@ -99,7 +102,8 @@
       const result = await FMV.request('/admin/prelaunch-reset/execute',{
         method:'POST',
         body:{ticket, confirmation:$('fmv-launch-reset-phrase').value.trim(),
-              backup_acknowledged:$('fmv-launch-reset-ack').checked}
+              backup_acknowledged:$('fmv-launch-reset-ack').checked,
+              inventory_acknowledged:$('fmv-launch-reset-stock-ack').checked}
       });
       ticket = null; exported = false;
       message(result.message || 'The pre-launch reset was completed.');
@@ -133,6 +137,8 @@
       <p id="fmv-launch-reset-blockers" class="fmv-launch-reset-warning" hidden></p>
       <label class="fmv-launch-reset-check"><input type="checkbox" id="fmv-launch-reset-ack" disabled>
         I personally checked that the downloaded archive is saved securely. I understand the reset cannot be reversed in the portal.</label>
+      <label class="fmv-launch-reset-check"><input type="checkbox" id="fmv-launch-reset-stock-ack" disabled>
+        I reviewed the product quantities shown in Stock restoration. I approve the inventory adjustments displayed above.</label>
       <label class="fmv-launch-reset-label" for="fmv-launch-reset-phrase">Type exactly: <strong>RESET FIRST MILK VENTURE TEST DATA</strong>
         <input id="fmv-launch-reset-phrase" type="text" autocomplete="off" maxlength="70" placeholder="Exact confirmation phrase" disabled></label>
       <button type="button" class="fmv-btn danger" id="fmv-launch-reset-run" disabled>Reset test Dispatch & Accounts data</button>
@@ -144,6 +150,7 @@
     $('fmv-launch-reset-prepare').addEventListener('click',prepare);
     $('fmv-launch-reset-run').addEventListener('click',execute);
     $('fmv-launch-reset-ack').addEventListener('change',updateButtons);
+    $('fmv-launch-reset-stock-ack').addEventListener('change',updateButtons);
     $('fmv-launch-reset-phrase').addEventListener('input',updateButtons);
     const show = () => {
       card.hidden = !authorised();
