@@ -332,9 +332,20 @@
   }
   async function guard(action){try{return await action();}catch(e){if(!e.stale)notice(e.message,true);return null;}}
   async function download(path,name){
-    const response=await nativeFetch(apiBase+path,{headers:{Authorization:'Bearer '+token()},credentials:'omit'});
-    if(!response.ok)throw new Error('Download is unavailable.');
-    const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('Content-Disposition') || '';const encodedName=disposition.match(/filename\*=UTF-8''([^;]+)/i);a.download=encodedName?decodeURIComponent(encodedName[1]):name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    const session=token();if(!session)throw new Error('Sign in to download the private file.');
+    const response=await nativeFetch(apiBase+path,{
+      headers:{Authorization:'Bearer '+session},credentials:'omit',cache:'no-store',
+      signal:AbortSignal.timeout(30000)
+    });
+    if(!response.ok)throw new Error('Download unavailable ('+response.status+'). No data was changed.');
+    const blob=await response.blob(),url=URL.createObjectURL(blob);
+    const disposition=response.headers.get('Content-Disposition') || '';
+    const encodedName=disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    const link=document.createElement('a');link.href=url;
+    link.download=encodedName?decodeURIComponent(encodedName[1]):name;
+    link.style.display='none';document.body.append(link);link.click();
+    // iOS Safari may require the object URL for longer than one second.
+    link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
   async function pay(orderId){
     const details=await request('/payments/create',{method:'POST',body:{order_id:orderId}});

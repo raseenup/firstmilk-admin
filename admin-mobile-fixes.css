@@ -1,0 +1,161 @@
+/* First Milk Venture Admin: targeted mobile layout/accessibility corrections.
+   Lightweight overrides only: no HTML rewriting, extra libraries, or polling. */
+body[data-portal="admin"] #fmv-media-library-items {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:12px;
+  min-width:0;
+  width:100%;
+}
+body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-item {
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
+  align-items:center;
+  column-gap:14px;
+  row-gap:10px;
+  min-width:0;
+  max-width:100%;
+  width:100%;
+  box-sizing:border-box;
+}
+body[data-portal="admin"] #fmv-media-library-items .fmv-media-file-icon {
+  flex:none;
+  grid-column:1;
+  width:44px;
+  height:44px;
+}
+body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-details {
+  grid-column:2;
+  flex:none;
+  display:block;
+  min-width:0;
+  width:100%;
+  max-width:100%;
+  overflow:hidden;
+  overflow-wrap:normal;
+  word-break:normal;
+}
+body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-details strong {
+  display:block;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  overflow-wrap:normal;
+  word-break:normal;
+  line-height:1.5;
+}
+body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-details small {
+  display:block;
+  max-width:100%;
+  line-height:1.5;
+  overflow-wrap:break-word;
+  word-break:normal;
+}
+body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-item .fmv-btn {
+  grid-column:3;
+  justify-self:end;
+  width:auto;
+  flex:none;
+  min-height:44px;
+  max-width:100%;
+  white-space:normal;
+}
+body[data-portal="admin"] .fmv-ad-media-library,
+body[data-portal="admin"] .fmv-library-upload-panel,
+body[data-portal="admin"] .fmv-ad-media-items {
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+body[data-portal="admin"] .fmv-library-upload-panel input[type="file"] {
+  max-width:100%;
+  min-width:0;
+}
+/* Mobile: icons and filenames get their own full-width information row;
+   action buttons are easy to tap without squeezing the metadata. */
+@media (max-width:740px) {
+  body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-item {
+    grid-template-columns:44px minmax(0,1fr);
+    padding:14px;
+    gap:10px 12px;
+  }
+  body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-item .fmv-btn {
+    grid-column:1 / -1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    justify-self:stretch;
+    width:100%;
+    min-width:0;
+    margin:0;
+    font-size:13px;
+  }
+  body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-details strong {
+    font-size:14px;
+  }
+  body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-details small {
+    font-size:12px;
+  }
+  body[data-portal="admin"] .admin-header-inner {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"brand actions" "count count";
+    align-items:center;
+    justify-content:stretch;
+    row-gap:4px!important;
+    column-gap:8px!important;
+    padding:9px 14px 7px!important;
+    min-height:0;
+  }
+  body[data-portal="admin"] .admin-header-inner .admin-brand {grid-area:brand;min-width:0;}
+  body[data-portal="admin"] .admin-header-inner .admin-header-actions {
+    grid-area:actions;min-width:0;justify-self:end;
+  }
+  body[data-portal="admin"] .admin-header-inner #fmv-unassigned-button {
+    grid-area:count;
+    display:flex;
+    justify-self:end;
+    width:auto;
+    min-height:32px!important;
+    margin:0;
+    padding:3px 9px;
+    font-size:11px;
+  }
+  body[data-portal="admin"] .admin-header-inner #fmv-unassigned-button[hidden] {display:none!important;}
+  body[data-portal="admin"] .admin-header-inner .admin-brand strong {
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:100%;
+  }
+  body[data-portal="admin"] .admin-brand > span:last-child {min-width:0;}
+  body[data-portal="admin"] #fmv-admin-nav {
+    scroll-snap-type:x proximity;
+    scroll-padding-inline:12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  body[data-portal="admin"] #fmv-admin-nav button {
+    scroll-snap-align:center;
+  }
+  body[data-portal="admin"] .admin-quick-actions>div {
+    min-width:0;
+  }
+  body[data-portal="admin"] .admin-quick-actions button {
+    overflow-wrap:break-word;
+    word-break:normal;
+  }
+}
+@media (max-width:360px) {
+  body[data-portal="admin"] .admin-header-inner .admin-brand strong {font-size:13px;}
+  body[data-portal="admin"] .admin-header-inner {padding-inline:10px!important;}
+}
+/* Ensure modal is above fixed header + nav when opened in iOS Safari. */
+body[data-portal="admin"] #fmv-launch-reset-warning[open] {z-index:1000;}
+/* Dark-mode media legibility, no forced bright card background. */
+:root[data-theme="dark"] body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-details {
+  color:#e4f5ee;
+}
+:root[data-theme="dark"] body[data-portal="admin"] #fmv-media-library-items .fmv-ad-media-details small {
+  color:#cee0d8;
+}
