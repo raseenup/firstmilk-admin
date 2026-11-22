@@ -21,3 +21,18 @@
 .fmv-ad-media-details{min-width:0;flex:1 1 170px;overflow-wrap:anywhere}
 .fmv-ad-media-item .fmv-btn{font-size:12px;min-height:39px;padding:9px 12px;white-space:normal;text-align:center}
 @media(max-width:640px){.fmv-library-upload-panel{padding:13px}.fmv-ad-media-item .fmv-btn{flex:1 1 138px}}
+
+/* Independently editable photorealistic product showcase slots. */
+.fmv-product-hero-manager{margin:26px 0;padding:23px;border-radius:22px;background:linear-gradient(145deg,#f5fcf7,#e7f4ef);border:1px solid #b5d9c8}
+.fmv-product-hero-manager header{margin-bottom:18px}
+.fmv-product-hero-manager header h4{margin:0 0 8px;color:#103f36}
+.fmv-product-hero-manager header p{line-height:1.6;color:#355f52;margin:0}
+.fmv-product-hero-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.fmv-product-hero-item{min-width:0;padding:18px;border-radius:18px;background:#fff;border:1px solid #d9e9dd;box-shadow:0 7px 20px #1c5a3a0b}
+.fmv-product-hero-item>strong{display:block;color:#164938;font-size:17px;margin-bottom:12px}
+.fmv-product-hero-preview{height:170px;display:grid;place-items:center;margin-bottom:12px;overflow:hidden;background:radial-gradient(circle,#31637b,#112c44);border-radius:14px;color:#e7f5ef;font-size:13px;text-align:center}
+.fmv-product-hero-preview img{width:100%;height:100%;object-fit:contain}
+.fmv-product-hero-item .fmv-studio-label{display:block;margin:10px 0;font-weight:650;color:#264f41}
+.fmv-product-hero-item input,.fmv-product-hero-item select{display:block;width:100%;margin-top:7px;min-height:42px;padding:8px;border:1px solid #a9cbb9;border-radius:10px;max-width:100%;background:#fff;color:#1e4738}
+.fmv-product-hero-item small{color:#557367;font-size:12px;line-height:1.4}
+@media(max-width:680px){.fmv-product-hero-manager{padding:15px}.fmv-product-hero-grid{grid-template-columns:1fr}}
