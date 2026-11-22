@@ -7,6 +7,7 @@
   const editable=()=>FMV.user?.portal==='admin' &&
     (['super_admin','content_manager'].includes(FMV.user.role) || FMV.user.content_editor===true);
   let knowledge=[],website=null,upi=null,editingId=null,sections=[],studioMediaLibrary=[];
+  const heroProducts=Object.freeze([['milk','Farm Fresh Milk'],['ghee','Pure Cow Ghee'],['curd','Fresh Curd'],['butter','Creamy Butter']]);
   const copyFields=[
     ['topline','Top announcement'],['hero_title','Hero headline'],['hero_description','Hero description'],
     ['products_title','Product section headline'],['products_description','Product section description'],
@@ -45,6 +46,11 @@
         <div id="fmv-website-upload-state" class="fmv-media-upload-state" role="status" hidden>
           <span id="fmv-website-upload-text">Ready to upload</span><progress id="fmv-website-upload-progress" max="100" value="0"></progress>
         </div>
+        <section class="fmv-product-hero-manager" aria-labelledby="fmv-product-hero-heading">
+          <header><h4 id="fmv-product-hero-heading">3D product showcase manager</h4>
+            <p>Publish a different realistic product image for each showcase tab. Super Admin and designated editors can replace these at any time. JPG, PNG or WebP; for fast mobile loading, prefer optimized WebP under 500 KB with a transparent or simple background.</p></header>
+          <div class="fmv-product-hero-grid" id="fmv-product-hero-grid"></div>
+        </section>
         <h4>Custom website sections</h4><p>Add up to 24 sections with their own reusable library images, GIFs, videos and positions on the homepage or Careers page.</p>
         <button type="button" class="fmv-btn secondary" data-studio="refresh-media-library">Refresh saved media choices</button>
         <button type="button" class="fmv-btn secondary" data-studio="add-block">+ Add website section</button>
@@ -78,6 +84,10 @@
     dash.append(studio,assistant,upiBox);
     groupAdminPanels();syncAdminNavigation();
     $('fmv-site-form').addEventListener('submit',saveWebsite);
+    $('fmv-product-hero-grid').addEventListener('change',(event)=>{
+      if(event.target.matches('select[data-product-hero]'))refreshProductHeroPreviews();
+      if(event.target.matches('input[type="file"][data-product-upload]'))refreshProductHeroPreviews();
+    });
     $('fmv-knowledge-form').addEventListener('submit',saveArticle);
     $('fmv-admin-chat-form').addEventListener('submit',chat);
     $('fmv-upi-form').addEventListener('submit',saveUPI);
@@ -119,10 +129,87 @@
     if(chosen && (chosen==='__remove__' || studioMediaLibrary.some(item=>item.id===chosen)))
       input.value=chosen;
   }
+  function productHeroOptions(current=''){
+    return '<option value="">Keep published image</option><option value="__remove__">Use built-in product artwork</option>'+
+      studioMediaLibrary.filter(item=>['image/jpeg','image/png','image/webp'].includes(item.mime_type))
+        .map(item=>mediaLibraryOption(item,current)).join('');
+  }
+  function buildProductHeroEditor(){
+    const host=$('fmv-product-hero-grid');if(!host)return;
+    host.innerHTML=heroProducts.map(([key,label])=>
+      `<article class="fmv-product-hero-item">
+        <strong>${esc(label)}</strong>
+        <div class="fmv-product-hero-preview" id="fmv-product-preview-${key}"><span>Built-in artwork</span></div>
+        <label class="fmv-studio-label">Choose saved product image
+          <select data-product-hero="${key}" id="fmv-product-select-${key}">${productHeroOptions()}</select>
+        </label>
+        <label class="fmv-studio-label">Or upload a replacement
+          <input type="file" accept="image/jpeg,image/png,image/webp"
+            data-product-upload="${key}" id="fmv-product-upload-${key}"
+            data-media-max-bytes="50000000">
+        </label>
+        <small>Square or 4:5 framing recommended. Existing media remains until you publish.</small>
+      </article>`).join('');
+    refreshProductHeroPreviews();
+  }
+  function refreshProductHeroPreviews(){
+    const saved=website?.hero_product_media || {};
+    for(const [key,label] of heroProducts){
+      const box=$('fmv-product-preview-'+key),picker=$('fmv-product-select-'+key);
+      if(!box || !picker)continue;
+      box.replaceChildren();
+      const file=$('fmv-product-upload-'+key)?.files?.[0];
+      const chosen=picker.value;
+      const id=chosen==='__remove__'?'':chosen || saved[key] || '';
+      if(file){
+        const name=document.createElement('span');
+        name.textContent='Ready to upload: '+file.name;
+        box.append(name);continue;
+      }
+      if(id && /^MEDIA-[A-Za-z0-9_-]{8,100}$/.test(id)){
+        const img=document.createElement('img');
+        img.src='https://backend.firstmilkventure.com/media/campaign/'+encodeURIComponent(id);
+        img.alt=label+' preview';img.loading='lazy';img.decoding='async';
+        box.append(img);
+      }else{
+        const caption=document.createElement('span');
+        caption.textContent='Built-in product artwork';
+        box.append(caption);
+      }
+    }
+  }
+  function refreshProductHeroOptions(){
+    const selection=Object.fromEntries(heroProducts.map(([key])=>[key,$('fmv-product-select-'+key)?.value||'']));
+    for(const [key] of heroProducts){
+      const select=$('fmv-product-select-'+key);
+      if(!select)continue;
+      select.innerHTML=productHeroOptions();
+      if(selection[key] && [...select.options].some(o=>o.value===selection[key]))select.value=selection[key];
+    }
+    refreshProductHeroPreviews();
+  }
+  async function uploadProductHeroes(){
+    const result={...(website?.hero_product_media || {})};
+    for(const [key] of heroProducts){
+      const select=$('fmv-product-select-'+key);
+      const uploaded=await upload('fmv-product-upload-'+key);
+      if(uploaded){
+        const mime=studioMediaLibrary.find(item=>item.id===uploaded)?.mime_type;
+        if(!['image/jpeg','image/png','image/webp'].includes(mime))throw Error('Product hero must be JPG, PNG or WebP.');
+        result[key]=uploaded;
+        // Retain uploaded ID in the editor if publishing fails later.
+        select.add(new Option('Just uploaded image',uploaded));
+        select.value=uploaded;
+      }else if(select.value==='__remove__')delete result[key];
+      else if(select.value)result[key]=select.value;
+    }
+    return result;
+  }
   async function loadStudioMediaLibrary(){
     const result=await api('/admin/content-media/library');
     studioMediaLibrary=Array.isArray(result.assets)?result.assets:[];
     renderHeroMediaOptions();
+    refreshProductHeroOptions();
   }
   function renderSections(){
     $('fmv-site-sections').innerHTML=sections.map((b,index)=>`<article class="fmv-studio-block" data-block="${esc(b.id)}">
@@ -150,6 +237,7 @@
     website=site;
     studioMediaLibrary=Array.isArray(library.assets)?library.assets:[];
     renderHeroMediaOptions('');
+    buildProductHeroEditor();
     for(const [field,label] of copyFields){
       let area=$('fmv-site-fields').querySelector('[data-copy="'+field+'"]');
       if(!area){area=document.createElement('label');area.className='fmv-studio-label';area.dataset.copy=field;
@@ -190,8 +278,9 @@
       const chosenHero=$('fmv-site-saved-media').value;
       const uploadedHero=await upload('fmv-site-media');
       const media_id=uploadedHero || (chosenHero==='__remove__'?'':chosenHero || website.media_id || '');
+      const hero_product_media=await uploadProductHeroes();
       const copy=Object.fromEntries(copyFields.map(([key])=>[key,$('fmv-site-fields').querySelector('[data-copy="'+key+'"] textarea').value]));
-      website=await api('/admin/website',{method:'PATCH',body:{copy,blocks,media_id,
+      website=await api('/admin/website',{method:'PATCH',body:{copy,blocks,media_id,hero_product_media,
         media_fit:form.elements.media_fit.value,background_color:form.elements.background_color.value,version:website.version}});
       FMV.notice('Website content published. Refresh the live site to view changes.');await loadWebsite();
     }catch(error){FMV.notice(error.message,true);}finally{button.disabled=false;}
