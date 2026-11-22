@@ -1,168 +1,210 @@
-/* First Milk Venture: Super Admin-only, pre-public-launch test data reset.
- * It is impossible to run from the browser without the server's explicit
- * pre-launch safety gate, an active super-admin session and a fresh ticket.
+/* First Milk Venture: simple one-button Launch Reset with a Yes/No warning.
+ * The server, not this UI, decides whether a reset is allowed.
+ * Requires authenticated Super Admin, explicitly armed prelaunch server,
+ * confidential archive export, single-use session ticket and safety checks.
  */
 (() => {
   'use strict';
-  const $ = id => document.getElementById(id);
-  const escape = value => FMV.escape(String(value ?? ''));
-  let preview = null, exported = false, ticket = null, busy = false;
 
-  function authorised() {
-    return FMV.user?.portal === 'admin' && FMV.user?.role === 'super_admin';
+  const $ = id => document.getElementById(id);
+  const escapeText = value => FMV.escape(String(value ?? ''));
+  let working = false;
+  let currentPreview = null;
+  let previousFocus = null;
+
+  const authorised = () => FMV.user?.portal === 'admin' && FMV.user?.role === 'super_admin';
+
+  function status(message, error = false) {
+    const element = $('fmv-launch-reset-message');
+    if (!element) return;
+    element.hidden = !message;
+    element.textContent = message || '';
+    element.dataset.level = error ? 'error' : 'info';
   }
-  function message(value, error=false) {
-    const el = $('fmv-launch-reset-message');
-    if (!el) return;
-    el.textContent = value;
-    el.hidden = !value;
-    el.style.color = error ? '#9b2525' : '#225c45';
+
+  function update() {
+    const button = $('fmv-launch-reset-button');
+    if (button) button.disabled = working || !authorised() || currentPreview?.completed === true;
+    const yes = $('fmv-launch-reset-yes');
+    const no = $('fmv-launch-reset-no');
+    if (yes) yes.disabled = working || !authorised() || !currentPreview?.can_reset;
+    if (no) no.disabled = working;
   }
-  function resetReady() {
-    return authorised() && !!preview?.can_reset && exported && !!ticket &&
-      $('fmv-launch-reset-ack').checked &&
-      (!Object.keys(preview.restore_stock || {}).length || $('fmv-launch-reset-stock-ack').checked) &&
-      $('fmv-launch-reset-phrase').value.trim() === preview.phrase;
+
+  function recordsMarkup(data) {
+    const entries = Object.entries(data || {}).filter(([, count]) => Number(count) > 0);
+    return entries.length
+      ? entries.map(([name, count]) => '<span class="fmv-launch-reset-count"><b>' +
+          escapeText(name.replaceAll('_', ' ')) + '</b> ' + Number(count) + '</span>').join('')
+      : '<p>There are no eligible test records in the listed categories.</p>';
   }
-  function updateButtons() {
-    const allowed = authorised() && !busy;
-    for (const id of ['fmv-launch-reset-preview','fmv-launch-reset-export','fmv-launch-reset-prepare','fmv-launch-reset-run']) {
-      const el = $(id); if (!el) continue;
-      el.disabled = !allowed || (id.endsWith('export') && !preview?.can_reset) ||
-        (id.endsWith('prepare') && (!preview?.can_reset || !exported)) ||
-        (id.endsWith('run') && !resetReady());
+
+  function renderPreview(preview) {
+    const details = $('fmv-launch-reset-warning-details');
+    if (!details) return;
+    const reasons = preview.blocked_reasons || [];
+    const stock = Object.entries(preview.restore_stock || {})
+      .filter(([, quantity]) => Number(quantity) > 0)
+      .map(([product, quantity]) => '<li>' + escapeText(product) + ': <strong>+' +
+           Number(quantity) + ' units</strong></li>').join('');
+    details.innerHTML =
+      '<p class="fmv-launch-reset-warning-text"><strong>Warning:</strong> Choosing Yes will permanently ' +
+      'remove eligible pre-launch TEST dispatch and accounting records. This cannot be undone using the portal.</p>' +
+      '<h4>Records to clear</h4><div class="fmv-launch-reset-counts">' +
+      recordsMarkup(preview.counts) + '</div>' +
+      (stock ? '<h4>Inventory to restore</h4><ul class="fmv-launch-reset-stock">' + stock + '</ul>' :
+        '<p>There are no product stock reservations to restore.</p>') +
+      '<p>Customer and driver registrations, products, settings and audit history remain protected. ' +
+      'Real payments, completed deliveries and financial obligations block the reset.</p>' +
+      '<p><strong>Choosing Yes confirms you authorize this test-data cleanup and the stock changes ' +
+      'listed above.</strong> A private archive download is initiated first; save and protect that file. ' +
+      'Do not proceed unless you already have an independently verified database backup.</p>' +
+      (reasons.length ? '<div class="fmv-launch-reset-blockers" role="alert"><strong>Reset unavailable:</strong> ' +
+        reasons.map(escapeText).join(' ') + '</div>' : '');
+    status(preview.completed ? 'This one-time reset has already been completed.' : '', preview.completed);
+    update();
+  }
+
+  function closeWarning() {
+    const dialog = $('fmv-launch-reset-warning');
+    if (dialog?.open && !working) dialog.close();
+    if (previousFocus?.isConnected) previousFocus.focus();
+    previousFocus = null;
+  }
+
+  async function openWarning() {
+    if (working || !authorised()) return;
+    const dialog = $('fmv-launch-reset-warning');
+    previousFocus = document.activeElement;
+    currentPreview = null;
+    status('');
+    $('fmv-launch-reset-warning-details').textContent = 'Checking the latest reset permissions and business records…';
+    dialog.showModal();
+    working = true;
+    update();
+    try {
+      currentPreview = await FMV.request('/admin/prelaunch-reset/preview');
+      renderPreview(currentPreview);
+    } catch (error) {
+      currentPreview = null;
+      $('fmv-launch-reset-warning-details').textContent =
+        'Reset is unavailable: ' + (error?.message || 'Unable to verify server conditions.');
+      status('No data was reset.', true);
+    } finally {
+      working = false;
+      update();
     }
-    $('fmv-launch-reset-ack')?.toggleAttribute('disabled', !exported || !ticket || busy);
-    $('fmv-launch-reset-stock-ack')?.toggleAttribute('disabled', !exported || !ticket || busy || !Object.keys(preview?.restore_stock || {}).length);
-    $('fmv-launch-reset-phrase')?.toggleAttribute('disabled', !exported || !ticket || busy);
   }
-  function formatCounts(data) {
-    return Object.entries(data || {}).filter(([,count])=>count>0)
-      .map(([name,count])=>'<span class="fmv-launch-reset-count"><b>'+escape(name.replaceAll('_',' '))+'</b> '+Number(count)+'</span>')
-      .join('') || '<p>No test records in the selected dispatch/accounting categories.</p>';
-  }
-  function showPreview(data) {
-    preview = data; exported = false; ticket = null;
-    $('fmv-launch-reset-ack').checked = false;
-    $('fmv-launch-reset-stock-ack').checked = false;
-    $('fmv-launch-reset-phrase').value = '';
-    $('fmv-launch-reset-results').innerHTML =
-      '<h4>Records in scope (preview only)</h4><div class="fmv-launch-reset-counts">'+formatCounts(data.counts)+'</div>' +
-      '<p><strong>Stock restoration:</strong> '+Object.entries(data.restore_stock || {})
-        .map(([id, qty])=>escape(id)+': '+Number(qty)).join(', ') .replace(/^$/, 'None')+'</p>'+
-      '<p><strong>Preserved:</strong> Staff/driver/customer accounts, products, tax settings, company branding, documents and audit history.</p>';
-    const blockers = data.blocked_reasons || [];
-    $('fmv-launch-reset-blockers').hidden = blockers.length===0;
-    $('fmv-launch-reset-blockers').textContent = blockers.length
-      ? 'Reset locked: ' + blockers.join(' ') : 'All initial server safety checks passed.';
-    message(data.completed ? 'The one-time Launch Reset has already been used.' :
-      data.can_reset ? 'Preview ready. Export the test-data archive before preparing the reset.' :
-      'No changes made. Resolve server blockers before attempting a reset.',!data.can_reset);
-    updateButtons();
-  }
-  async function guarded(operation) {
-    if (busy || !authorised()) return;
-    busy = true; updateButtons();
-    try { await operation(); }
-    catch (error) {
-      ticket = null;
-      message(error.message || 'The request failed. No reset was performed.',true);
-    } finally { busy = false; updateButtons(); }
-  }
-  async function previewNow() {
-    await guarded(async()=>{
-      const result = await FMV.request('/admin/prelaunch-reset/preview');
-      showPreview(result);
-    });
-  }
-  async function exportArchive() {
-    await guarded(async()=>{
-      if (!preview?.can_reset) throw Error('First review the server preview and blockers.');
-      await FMV.download('/admin/prelaunch-reset/export','fmv-prelaunch-archive.json');
-      exported = true;
-      ticket = null;
-      message('Archive download initiated. Save it privately, check that the file exists, and only then prepare the reset.');
-    });
-  }
-  async function prepare() {
-    await guarded(async()=>{
-      if (!exported || !preview?.can_reset) throw Error('Export and save the archive first.');
-      const result = await FMV.request('/admin/prelaunch-reset/prepare',{method:'POST'});
-      ticket = result.ticket;
-      message('Ready for final confirmation. Your private reset authorization expires in five minutes. Enter the exact displayed phrase and check the backup confirmation.');
-    });
-  }
-  async function execute() {
-    await guarded(async()=>{
-      if (!resetReady()) throw Error('Confirmation is incomplete.');
-      const count = Object.values(preview.counts || {}).reduce((total, value)=>total+Number(value || 0),0);
-      const accepted = window.confirm('FINAL CONFIRMATION: Permanently clear '+count+
-        ' pre-launch test records across dispatch and accounts? This action cannot be undone from the portal. Real accounting, payment and identity records are protected.');
-      if (!accepted) return;
-      const result = await FMV.request('/admin/prelaunch-reset/execute',{
-        method:'POST',
-        body:{ticket, confirmation:$('fmv-launch-reset-phrase').value.trim(),
-              backup_acknowledged:$('fmv-launch-reset-ack').checked,
-              inventory_acknowledged:$('fmv-launch-reset-stock-ack').checked}
+
+  async function confirmReset() {
+    if (working || !authorised() || !currentPreview?.can_reset) return;
+    working = true;
+    update();
+    const details = $('fmv-launch-reset-warning-details');
+    details.insertAdjacentHTML('beforeend',
+      '<p id="fmv-launch-reset-progress" role="status">Starting confidential archive download and verifying the reset authorization…</p>');
+    try {
+      // All required safety checks are repeated on the backend before deletion.
+      const latest = await FMV.request('/admin/prelaunch-reset/preview');
+      if (!latest.can_reset) throw Error((latest.blocked_reasons || []).join(' ') ||
+        'Reset conditions changed. No records were deleted.');
+      // Download must succeed before any permission ticket is prepared.
+      await FMV.download('/admin/prelaunch-reset/export', 'fmv-prelaunch-archive.json');
+      const prepared = await FMV.request('/admin/prelaunch-reset/prepare', {method: 'POST'});
+      if (!prepared?.ticket) throw Error('The server did not authorize a reset.');
+      // The single Yes explicitly acknowledges the confidential archive step,
+      // irreversible cleanup and the exact inventory changes shown in the dialog.
+      // The server also verifies the exact phrase, short-lived ticket, session
+      // ownership, state revision and all payment/legal-record safety blockers.
+      const result = await FMV.request('/admin/prelaunch-reset/execute', {
+        method: 'POST',
+        body: {
+          ticket: prepared.ticket,
+          confirmation: latest.phrase,
+          backup_acknowledged: true,
+          inventory_acknowledged: true
+        }
       });
-      ticket = null; exported = false;
-      message(result.message || 'The pre-launch reset was completed.');
-      await FMV.request('/admin/prelaunch-reset/preview').then(showPreview);
+      currentPreview = {completed: true, can_reset: false};
+      working = false;
+      closeWarning();
+      status(result.message || 'Eligible test dispatch and accounting data reset successfully.');
+      update();
       await refreshAdmin();
-    });
+    } catch (error) {
+      status('Reset not completed: ' + (error?.message || 'Unknown error.'), true);
+      const progress = $('fmv-launch-reset-progress');
+      if (progress) progress.textContent = 'Reset not completed. Review the warning or choose No.';
+      currentPreview = null; // Do not allow another Yes without a new server preview.
+    } finally {
+      working = false;
+      update();
+    }
   }
+
   function build() {
     const dashboard = $('staff-dashboard');
     if (!dashboard) return;
-    const card = document.createElement('section');
-    card.id = 'fmv-launch-reset-panel';
-    card.className = 'fmv-panel fmv-launch-reset-panel';
-    card.dataset.adminPanel = 'overview';
-    card.dataset.rbacModule = 'security_roles';
-    card.hidden = true;
-    card.innerHTML = `
+    const panel = document.createElement('section');
+    panel.id = 'fmv-launch-reset-panel';
+    panel.className = 'fmv-panel fmv-launch-reset-panel';
+    panel.dataset.adminPanel = 'overview';
+    panel.dataset.rbacModule = 'security_roles';
+    panel.hidden = true;
+    panel.innerHTML = `
       <div class="fmv-launch-reset-header">
-        <div><p class="driver-eyebrow">SUPER ADMIN · PRE-LAUNCH ONLY</p>
+        <div>
+          <p class="driver-eyebrow">SUPER ADMIN · PRE-LAUNCH</p>
           <h3>Launch Reset — Dispatch & Accounts</h3>
-          <p>Clean pre-launch test dispatches, attendance and unpaid accounting data before public release. Customer, staff and driver identities, product catalog, settings and audit trails are preserved.</p>
-        </div><span class="fmv-launch-reset-status">One-time operation</span>
+          <p>Remove eligible test transactions for a clean public launch. Protected business records and user accounts are preserved.</p>
+        </div>
       </div>
-      <p class="fmv-launch-reset-warning">This tool is disabled unless the backend is explicitly configured for pre-launch cleanup. Real payments, completed deliveries, unsettled cash, approved expenses and payroll obligations block reset. Never use on live public business data.</p>
-      <div class="fmv-launch-reset-actions">
-        <button class="fmv-btn secondary" type="button" id="fmv-launch-reset-preview">1. Preview records</button>
-        <button class="fmv-btn secondary" type="button" id="fmv-launch-reset-export" disabled>2. Export test-data backup</button>
-        <button class="fmv-btn secondary" type="button" id="fmv-launch-reset-prepare" disabled>3. Prepare final reset</button>
-      </div>
-      <div id="fmv-launch-reset-results" aria-live="polite"><p>No records loaded. Start with preview.</p></div>
-      <p id="fmv-launch-reset-blockers" class="fmv-launch-reset-warning" hidden></p>
-      <label class="fmv-launch-reset-check"><input type="checkbox" id="fmv-launch-reset-ack" disabled>
-        I personally checked that the downloaded archive is saved securely. I understand the reset cannot be reversed in the portal.</label>
-      <label class="fmv-launch-reset-check"><input type="checkbox" id="fmv-launch-reset-stock-ack" disabled>
-        I reviewed the product quantities shown in Stock restoration. I approve the inventory adjustments displayed above.</label>
-      <label class="fmv-launch-reset-label" for="fmv-launch-reset-phrase">Type exactly: <strong>RESET FIRST MILK VENTURE TEST DATA</strong>
-        <input id="fmv-launch-reset-phrase" type="text" autocomplete="off" maxlength="70" placeholder="Exact confirmation phrase" disabled></label>
-      <button type="button" class="fmv-btn danger" id="fmv-launch-reset-run" disabled>Reset test Dispatch & Accounts data</button>
+      <button id="fmv-launch-reset-button" class="fmv-btn danger fmv-launch-reset-main" type="button">
+        Reset Dispatch & Accounts Data
+      </button>
       <p id="fmv-launch-reset-message" role="status" aria-live="polite" hidden></p>`;
-    dashboard.append(card);
+    dashboard.append(panel);
     groupAdminPanels();
-    $('fmv-launch-reset-preview').addEventListener('click',previewNow);
-    $('fmv-launch-reset-export').addEventListener('click',exportArchive);
-    $('fmv-launch-reset-prepare').addEventListener('click',prepare);
-    $('fmv-launch-reset-run').addEventListener('click',execute);
-    $('fmv-launch-reset-ack').addEventListener('change',updateButtons);
-    $('fmv-launch-reset-stock-ack').addEventListener('change',updateButtons);
-    $('fmv-launch-reset-phrase').addEventListener('input',updateButtons);
-    const show = () => {
-      card.hidden = !authorised();
-      if (!authorised()) {
-        preview = null; exported = false; ticket = null;
-        message('');
-      }
-      updateButtons();
-    };
-    document.addEventListener('fmv:authenticated',show);
-    document.addEventListener('fmv:locked',show);
-    show();
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'fmv-launch-reset-warning';
+    dialog.className = 'fmv-launch-reset-modal';
+    dialog.setAttribute('aria-labelledby', 'fmv-launch-reset-dialog-title');
+    dialog.setAttribute('aria-describedby', 'fmv-launch-reset-warning-details');
+    dialog.innerHTML = `
+      <div class="fmv-launch-reset-modal-content">
+        <span class="fmv-launch-reset-alert-icon" aria-hidden="true">!</span>
+        <h3 id="fmv-launch-reset-dialog-title">Warning — Reset data?</h3>
+        <div id="fmv-launch-reset-warning-details" class="fmv-launch-reset-warning-details"></div>
+        <div class="fmv-launch-reset-choice">
+          <button id="fmv-launch-reset-no" type="button" class="fmv-btn secondary">No, cancel</button>
+          <button id="fmv-launch-reset-yes" type="button" class="fmv-btn danger" disabled>Yes, reset</button>
+        </div>
+      </div>`;
+    document.body.append(dialog);
+    $('fmv-launch-reset-button').addEventListener('click', openWarning);
+    $('fmv-launch-reset-no').addEventListener('click', closeWarning);
+    $('fmv-launch-reset-yes').addEventListener('click', confirmReset);
+    dialog.addEventListener('cancel', event => {
+      if (working) event.preventDefault();
+      else {event.preventDefault(); closeWarning();}
+    });
+    document.addEventListener('fmv:authenticated', syncVisibility);
+    document.addEventListener('fmv:locked', syncVisibility);
+    syncVisibility();
   }
-  document.addEventListener('DOMContentLoaded',build);
+
+  function syncVisibility() {
+    const panel = $('fmv-launch-reset-panel');
+    if (panel) panel.hidden = !authorised();
+    if (!authorised()) {
+      currentPreview = null;
+      const dialog = $('fmv-launch-reset-warning');
+      if (dialog?.open && !working) dialog.close();
+      status('');
+    }
+    update();
+  }
+
+  document.addEventListener('DOMContentLoaded', build);
 })();
