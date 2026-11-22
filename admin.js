@@ -838,10 +838,17 @@ async function reassignOrder(id){return FMV.guard(async()=>{
 });}
 async function loadDriversList(){return FMV.guard(async()=>{
   const drivers=await FMV.request('/admin/drivers'),e=FMV.escape;
-  FMV.setHTML('drivers-list-admin',drivers.map(d=>`<div class="fmv-row"><div><strong>${e(d.name)}</strong><p class="fmv-small">${e(d.email || 'Awaiting registration')} · ${e(d.phone)}<br>${e(d.address)}<br>${d.approved?'Approved':'Pending approval'}</p></div><div class="fmv-flex"><button class="fmv-btn secondary" data-admin-work="driver-details" data-id="${e(d.id)}">Performance & documents</button>${!d.approved && d.email?`<button class="fmv-btn" onclick="approveDriver('${e(d.id)}')">Approve</button>`:''}<button class="fmv-btn danger" onclick="deleteDriver('${e(d.id)}')">Remove</button></div></div>`).join('') || FMV.empty('No registered drivers. Drivers can sign up at the driver portal.'));
+  FMV.setHTML('drivers-list-admin',drivers.map(d=>`<div class="fmv-row"><div><strong>${e(d.name)}</strong><p class="fmv-small">${e(d.email || 'Awaiting registration')} · ${e(d.phone)}<br>${e(d.address)}<br>${d.approved?'Approved':'Pending approval'}</p></div><div class="fmv-flex"><button class="fmv-btn secondary" data-admin-work="driver-details" data-id="${e(d.id)}">Performance & documents</button>${!d.approved && d.email?`<button class="fmv-btn" onclick="approveDriver('${e(d.id)}')">Approve</button>`:''}<button class="fmv-btn danger" onclick="deleteDriver('${e(d.id)}')">Delete permanently</button></div></div>`).join('') || FMV.empty('No registered drivers. Drivers can sign up at the driver portal.'));
 });}
 async function approveDriver(id){return FMV.guard(async()=>{const result=await FMV.request('/admin/drivers/'+encodeURIComponent(id)+'/approve',{method:'POST'});FMV.notice(result.message);loadDriversList();});}
-async function deleteDriver(id){if(!confirm('Disable this driver account?'))return;return FMV.guard(async()=>{await FMV.request('/admin/drivers/'+encodeURIComponent(id),{method:'DELETE'});loadDriversList();});}
+async function deleteDriver(id){
+  if(!confirm('Permanently remove this driver account? The driver will lose access immediately and must complete a new registration, email OTP and administrator approval to return. Completed operational and financial audit records are retained. Reassign open deliveries and clock out first.'))return;
+  return FMV.guard(async()=>{
+    const result=await FMV.request('/admin/drivers/'+encodeURIComponent(id),{method:'DELETE'});
+    FMV.notice(result.message || 'Driver account permanently removed.');
+    await loadDriversList();
+  });
+}
 async function createNewDriver(){return FMV.guard(async()=>{
   const body={driver_key:FMV.val('new-driver-key'),name:FMV.val('new-driver-name'),phone:FMV.val('new-driver-phone'),address:FMV.val('new-driver-address')};
   const result=await FMV.request('/admin/drivers',{method:'POST',body});FMV.notice(result.message);await loadDriversList();
