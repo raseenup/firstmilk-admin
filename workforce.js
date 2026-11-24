@@ -4,11 +4,22 @@
   const $=id=>document.getElementById(id),e=value=>FMV.escape(value);
   let data={},permissions={},selectedRoute='unassigned',routeChosen=false;
   const driverOptions=()=>((data.drivers || data.wallets?.map(w=>({id:w.driver_id,name:w.name})) || []).map(d=>`<option value="${e(d.id)}" ${d.approved===false?'disabled':''}>${e(d.name)}</option>`).join(''));
+  function elapsedTime(seconds){
+    const parts=[Math.floor(seconds/3600),Math.floor(seconds%3600/60),seconds%60];
+    return parts.map(n=>String(n).padStart(2,'0')).join(':');
+  }
   function render(snapshot){
     permissions=snapshot.workforce_permissions || {};
     $('fmv-work-manage').hidden=!permissions.manage;$('fmv-work-finance').hidden=!permissions.finance;
     if(!snapshot.workforce)return;data=snapshot.workforce;
     if(permissions.manage){
+      const pending=data.overtime_requests || [];
+      $('fmv-overtime-section').hidden=pending.length===0;
+      FMV.setHTML('fmv-overtime-requests',pending.map(shift=>
+        '<article class="fmv-work-card"><strong>'+e(shift.driver_name)+'</strong><p>'+
+        e(shift.clock_in)+' – '+e(shift.clock_out)+'<br>Extra time recorded · '+e(elapsedTime(shift.extra_seconds))+
+        '</p><button type="button" class="fmv-btn" data-admin-work="review-overtime" data-id="'+e(shift.id)+
+        '">Review hours</button></article>').join(''));
       FMV.setHTML('fmv-incentive-campaigns',(data.incentives || []).slice().reverse().map(i=>`<article class="fmv-work-card"><h3>${e(i.title)}</h3><p class="fmv-work-instructions">${e(i.instructions)}</p><p>${FMV.money(i.reward)} · ${Number(i.target_deliveries)} deliveries required · ${i.driver_ids.length} assigned drivers · ${i.active?'Active':'Closed'}</p>${i.active?`<button class="fmv-btn secondary" data-admin-work="close-incentive" data-id="${e(i.id)}">Close instructions</button>`:''}</article>`).join('') || FMV.empty('No incentive instructions published.'));
       FMV.setHTML('fmv-incentive-claims',(data.claims || []).slice().reverse().map(claim=>`<article class="fmv-work-card"><strong>${e(claim.title)} · ${e(claim.status)}</strong><p>${e(data.drivers?.find(d=>d.id===claim.driver_id)?.name || claim.driver_id)}<br>${e(claim.note)}</p>${claim.status==='pending'?`<div class="fmv-flex"><button class="fmv-btn" data-admin-work="review-claim" data-id="${e(claim.id)}" data-status="approved">Approve & credit incentive</button><button class="fmv-btn secondary" data-admin-work="review-claim" data-id="${e(claim.id)}" data-status="rejected">Reject</button></div>`:''}</article>`).join('') || FMV.empty('No incentive completion requests.'));
       FMV.setHTML('fmv-fleet-performance',(data.drivers || []).map(d=>{const p=d.performance;return `<details class="fmv-work-card" data-fleet-driver="${e(d.id)}"><summary><strong>${e(d.name)}</strong> · ${p.delivered} delivered · Rating ${p.rating===null?'not yet rated':p.rating+' / 5'}</summary><p>${e(d.email)}<br>${p.running} running · ${p.failed_attempts} failed attempts · ${p.completed_shifts} completed shifts<br>Delivery-date completion ${p.on_time_percent===null?'—':p.on_time_percent+'%'} · ${p.rating_count} ratings</p><h4>Document expiration</h4>${d.documents.map(doc=>`<div class="fmv-row"><span>${e(doc.kind)} · ${e(doc.expires_on)} · ${e(doc.status)}</span><button class="fmv-btn secondary" data-admin-work="document" data-id="${e(doc.id)}" data-name="${e(doc.filename)}">Download private document</button></div>`).join('') || FMV.empty('No vehicle documents uploaded.')}<h4>Customer reviews</h4>${p.reviews.map(r=>`<p>${Number(r.stars)} / 5 · ${e(r.comment)}</p>`).join('') || FMV.empty('No reviews yet.')}</details>`;}).join('') || FMV.empty('Registered drivers will appear here.'));
@@ -34,6 +45,24 @@
   async function click(event){
     const button=event.target.closest('[data-admin-work]');if(!button || button.disabled)return;
     const action=button.dataset.adminWork,id=button.dataset.id;
+    if(action==='review-overtime'){
+      const shift=(data.overtime_requests || []).find(item=>item.id===id);
+      if(!shift)return;
+      const fields='<p>'+e(shift.driver_name)+' recorded '+e(elapsedTime(shift.extra_seconds))+
+        ' beyond 15 hours. Enter the verified extra time, or 00:00:00 to decline it.</p>'+
+        '<label>Approved extra time (hours:minutes:seconds)<input name="duration" required maxlength="12" '+
+        'pattern="[0-9]{1,6}:[0-5][0-9]:[0-5][0-9]" value="'+e(elapsedTime(shift.extra_seconds))+'"></label>'+
+        '<label>Review note (optional)<textarea name="note" maxlength="500"></textarea></label>';
+      FMVWorkspace.form('Review extra work time',fields,async form=>{
+        const [hours,minutes,seconds]=form.elements.duration.value.split(':').map(Number);
+        const approved=hours*3600+minutes*60+seconds;
+        if(!Number.isSafeInteger(approved) || approved<0 || approved>shift.extra_seconds)throw new Error('Enter time within the recorded extra hours.');
+        await FMV.request('/admin/workforce/shifts/'+encodeURIComponent(id)+'/overtime',{
+          method:'POST',body:{approved_seconds:approved,note:form.elements.note.value.trim()}});
+        FMV.notice('Attendance decision saved.');await refreshAdmin();
+      },'Save decision');
+      return;
+    }
     if(action==='driver-details'){selectAdminTab('workforce');await refreshAdmin();const details=[...document.querySelectorAll('[data-fleet-driver]')].find(node=>node.dataset.fleetDriver===id);if(details){details.open=true;details.scrollIntoView({behavior:'smooth'});}return;}
     if(action==='new-incentive'){
       const key=crypto.randomUUID().replaceAll('-','');
@@ -72,7 +101,7 @@
   }
   document.addEventListener('DOMContentLoaded',()=>{
     const panel=document.createElement('section');panel.className='fmv-panel';panel.dataset.adminPanel='workforce';
-    panel.innerHTML='<div id="fmv-work-manage"><h2>Driver instructions & incentive approvals</h2><div class="fmv-manager-toolbar"><button class="fmv-btn" data-admin-work="new-incentive">Publish incentive instructions</button></div><div id="fmv-incentive-campaigns"></div><h3>Completion requests</h3><div id="fmv-incentive-claims"></div><h2>Delivery route planning</h2><div class="fmv-manager-toolbar"><button class="fmv-btn secondary" data-admin-work="route-settings">Depot & cost settings</button><button class="fmv-btn secondary" data-admin-work="location">Set missing delivery coordinates</button></div><label>Route for<select class="fmv-input" id="fmv-route-driver"><option value="unassigned">Unassigned deliveries</option></select></label><div id="fmv-admin-route"></div><h2>Driver details, performance & document expiration</h2><div id="fmv-fleet-performance"></div><h2>Failed delivery attempt reports</h2><div id="fmv-failed-attempts"></div></div><div id="fmv-work-finance"><h2>Earnings, wallet & payout review</h2><p class="fmv-small">Net available earnings exclude outstanding COD cash, previous payouts and pending claims. Record actual cash/bank payment only after it has happened.</p><div id="fmv-workforce-wallets"></div></div>';
+    panel.innerHTML='<div id="fmv-work-manage"><section id="fmv-overtime-section" hidden><h2>Shifts awaiting extra-time approval</h2><div id="fmv-overtime-requests"></div></section><h2>Driver instructions & incentive approvals</h2><div class="fmv-manager-toolbar"><button class="fmv-btn" data-admin-work="new-incentive">Publish incentive instructions</button></div><div id="fmv-incentive-campaigns"></div><h3>Completion requests</h3><div id="fmv-incentive-claims"></div><h2>Delivery route planning</h2><div class="fmv-manager-toolbar"><button class="fmv-btn secondary" data-admin-work="route-settings">Depot & cost settings</button><button class="fmv-btn secondary" data-admin-work="location">Set missing delivery coordinates</button></div><label>Route for<select class="fmv-input" id="fmv-route-driver"><option value="unassigned">Unassigned deliveries</option></select></label><div id="fmv-admin-route"></div><h2>Driver details, performance & document expiration</h2><div id="fmv-fleet-performance"></div><h2>Failed delivery attempt reports</h2><div id="fmv-failed-attempts"></div></div><div id="fmv-work-finance"><h2>Earnings, wallet & payout review</h2><p class="fmv-small">Net available earnings exclude outstanding COD cash, previous payouts and pending claims. Record actual cash/bank payment only after it has happened.</p><div id="fmv-workforce-wallets"></div></div>';
     $('staff-dashboard').append(panel);const tab=document.createElement('button');tab.type='button';tab.id='fmv-admin-tab-workforce';tab.dataset.adminTab='workforce';tab.setAttribute('aria-controls','fmv-admin-panel-workforce');tab.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 22v-5a8 8 0 0 1 16 0v5"/></svg><span>Drivers</span>';$('fmv-admin-nav').append(tab);groupAdminPanels();syncAdminNavigation();
     const overview=document.createElement('div');overview.className='fmv-overview-controls';overview.innerHTML=FMVWorkspace.settingsMarkup()+'<button class="fmv-btn secondary" data-admin-work="alerts">Notifications</button>';const signout=document.querySelector('.admin-signout');if(signout)overview.append(signout);$('fmv-admin-panel-overview').prepend(overview);
     const delegates=document.createElement('button');delegates.className='fmv-btn secondary';delegates.dataset.adminWork='delegates';delegates.id='fmv-workforce-delegates';delegates.textContent='Designate driver / payout managers';$('fmv-admin-panel-invitations').prepend(delegates);
@@ -81,5 +110,5 @@
   });
   document.addEventListener('fmv:admin-tab',event=>{if(event.detail==='workforce')refreshAdmin();});
   document.addEventListener('fmv:snapshot',event=>{if(event.detail.user.portal==='admin' && $('fmv-work-manage'))render(event.detail);});
-  document.addEventListener('fmv:locked',()=>{data={};permissions={};selectedRoute='unassigned';routeChosen=false;for(const id of ['fmv-incentive-campaigns','fmv-incentive-claims','fmv-fleet-performance','fmv-admin-route','fmv-failed-attempts','fmv-workforce-wallets'])$(id)?.replaceChildren();});
+  document.addEventListener('fmv:locked',()=>{data={};permissions={};selectedRoute='unassigned';routeChosen=false;$('fmv-overtime-section')?.setAttribute('hidden','');for(const id of ['fmv-overtime-requests','fmv-incentive-campaigns','fmv-incentive-claims','fmv-fleet-performance','fmv-admin-route','fmv-failed-attempts','fmv-workforce-wallets'])$(id)?.replaceChildren();});
 })();

@@ -19,13 +19,12 @@ function harness(){
   const page={FMVUpload:null};
   const context={window:page,File:FakeFile,AbortSignal,DOMException,setTimeout,Promise,
     FMV:{apiBase:'https://backend.firstmilkventure.com',
-      get token(){return token;}},
+      get sessionId(){return token;}},
     fetch:async(url,options={})=>{
       const path=new URL(url).pathname;
       actions.push({path,method:options.method,headers:options.headers,
                     bytes:options.body?.byteLength||0,body:options.body});
-      assert.equal(options.credentials,'omit');
-      assert.equal(options.headers.Authorization,'Bearer session-token');
+      assert.equal(options.headers.Authorization,undefined);
       let data;
       if(path.endsWith('/uploads')&&options.method==='POST')
         data={id:'UPLOAD-1234567890',chunk_size:2000000,offset:0,total_size:2100001};

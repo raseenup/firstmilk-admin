@@ -7,8 +7,55 @@
   const nativeFetch = window.fetch.bind(window);
   const portal = () => document.body?.dataset.portal || 'customer';
   let user = null, revision = null, syncTimer = null, challenge = null, authMode = 'signin', lastActivity = Date.now(), authBusy = false;
-  const tokenKey = () => 'fmv_session_' + portal();
-  const token = () => sessionStorage.getItem(tokenKey()) || '';
+  const apiOrigin = new URL(apiBase).origin;
+  // The production portals and API share an HTTPS site. Standalone native
+  // and cross-site development builds keep their bearer in process memory.
+  const cookieSession = location.origin === apiOrigin ||
+    (location.protocol === 'https:' && location.hostname.endsWith('.firstmilkventure.com') &&
+      apiOrigin === 'https://backend.firstmilkventure.com') || window.FMV_CONFIG?.browserCookies === true;
+  const sessionKey = () => 'fmv_session_id_' + portal();
+  let memoryBearer = '', memoryId = '';
+  const sessionId = () => cookieSession ? (sessionStorage.getItem(sessionKey()) || '') : memoryId;
+
+  // Remove credentials written by earlier releases, including pre-OTP shared keys.
+  for (const role of ['customer', 'driver', 'admin']) sessionStorage.removeItem('fmv_session_' + role);
+  try {
+    for (const key of ['customer_token','customer_email','customer_phone','customer_name','customer_address',
+                       'driver_key','driver_profile','shift_id','driver_manifest_cache','admin_key','admin_role']) {
+      localStorage.removeItem(key);
+    }
+  } catch { /* Some browsers disable local storage entirely. */ }
+
+  function acceptSession(result) {
+    if (!/^SES-[0-9a-f]{20}$/.test(result.session_id || '') || result.user?.portal !== portal()) return false;
+    if (cookieSession) {
+      if (result.access_token) return false;
+      sessionStorage.setItem(sessionKey(), result.session_id);
+    } else {
+      if (!result.access_token) return false;
+      memoryBearer = result.access_token;
+      memoryId = result.session_id;
+    }
+    return true;
+  }
+
+  function sessionFetch(input, options = {}) {
+    const url = new URL(typeof input === 'string' ? input : (input.url || String(input)), location.href);
+    if (url.origin !== apiOrigin) throw new Error('Invalid API destination.');
+    const source = typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined;
+    const headers = new Headers(options.headers || source);
+    for (const name of ['Authorization','X-Admin-Key','X-Admin-Role','X-Driver-Key','X-FMV-Portal','X-FMV-Session']) {
+      headers.delete(name);
+    }
+    if (cookieSession) {
+      headers.set('X-FMV-Portal', portal());
+      const id = sessionId();
+      if (id) headers.set('X-FMV-Session', id);
+    } else if (memoryBearer) {
+      headers.set('Authorization', 'Bearer ' + memoryBearer);
+    }
+    return nativeFetch(input, {...options, headers, credentials:cookieSession ? 'include' : 'omit', redirect:'error'});
+  }
   const pendingKey = () => 'fmv_pending_auth_' + portal();
   let pending = null, challengeClock = null, challengeTimer = null, resendBusy = false, expiredNotice = false;
   let authGeneration = 0, restoreBusy = false, hiddenAt = null;
@@ -94,22 +141,21 @@
   let changeTimer=null, syncFailures=0, mutationEpoch=0;
   async function rawRequest(path, options={}) {
     const headers=new Headers(options.headers || {});
-    const requestToken=token();
-    if(requestToken) headers.set('Authorization','Bearer '+requestToken);
+    const requestSession=sessionId();
     if(options.body && typeof options.body !== 'string'){headers.set('Content-Type','application/json');options={...options,body:JSON.stringify(options.body)};}
     let response;
-    try{response=await nativeFetch(apiBase+path,{...options,headers,credentials:'omit',cache:'no-store',signal:options.signal || AbortSignal.timeout(30000)});}
+    try{response=await sessionFetch(apiBase+path,{...options,headers,cache:'no-store',signal:options.signal || AbortSignal.timeout(30000)});}
     catch(e){throw new Error('The server could not be reached. Please retry.');}
     const contentType=response.headers.get('content-type') || '';
     const data=contentType.includes('json')?await response.json():null;
     if(!response.ok){
-      if(response.status===401 && requestToken && !path.startsWith('/auth/') && token()===requestToken) lock();
+      if(response.status===401 && requestSession && !path.startsWith('/auth/') && sessionId()===requestSession) lock();
       const error=new Error(validationMessage(data,response.status));error.status=response.status;
       const numberHeader=name=>{const value=response.headers.get(name);return value!==null && Number.isFinite(Number(value))?Number(value):null;};
       error.timing={server_time:numberHeader('X-Server-Time'),resend_available_at:numberHeader('X-Resend-Available-At'),expires_at:numberHeader('X-OTP-Expires-At'),retry_after:numberHeader('Retry-After')};
       throw error;
     }
-    if(requestToken && token()!==requestToken){const error=new Error('Session changed.');error.stale=true;throw error;}
+    if(requestSession && sessionId()!==requestSession){const error=new Error('Session changed.');error.stale=true;throw error;}
     if(user && !['GET','HEAD'].includes((options.method || 'GET').toUpperCase()) && !path.startsWith('/auth/')){
       mutationEpoch++;clearTimeout(changeTimer);changeTimer=setTimeout(()=>{if(user)document.dispatchEvent(new CustomEvent('fmv:sync'));},80);
     }
@@ -119,7 +165,7 @@
     const method=(options.method || 'GET').toUpperCase();
     if(method!=='GET' || options.signal)return rawRequest(path,options);
     // Never share a pre-mutation read or a differently shaped request.
-    const key=JSON.stringify([token(),mutationEpoch,path,[...new Headers(options.headers || {}).entries()]]);
+    const key=JSON.stringify([sessionId(),mutationEpoch,path,[...new Headers(options.headers || {}).entries()]]);
     if(!reads.has(key))reads.set(key,rawRequest(path,options).finally(()=>reads.delete(key)));
     return reads.get(key);
   }
@@ -131,8 +177,8 @@
   }
   function refresh(name,action){
     if(refreshes.has(name)){const current=refreshes.get(name);current.again=true;return current.promise;}
-    const current={again:false},sessionToken=token();refreshes.set(name,current);
-    current.promise=(async()=>{do{current.again=false;await action();}while(current.again && user && token()===sessionToken);})()
+    const current={again:false},activeSession=sessionId();refreshes.set(name,current);
+    current.promise=(async()=>{do{current.again=false;await action();}while(current.again && user && sessionId()===activeSession);})()
       .finally(()=>{if(refreshes.get(name)===current)refreshes.delete(name);});
     return current.promise;
   }
@@ -141,23 +187,19 @@
   }
   async function pollSync(){
     if(!user || document.hidden || navigator.onLine===false)return;
-    const syncToken=token();
+    const syncSession=sessionId();
     if(Date.now()-lastActivity>30*60*1000){await logout();return;}
     try{
       const data=await request('/sync');
       if(syncFailures)notice('Connection restored. Your records are updating.');syncFailures=0;
       if(revision!==data.revision)document.dispatchEvent(new CustomEvent('fmv:sync')); // Snapshot success acknowledges the revision; failed refreshes retry.
     }catch(error){if(user && !error.stale && !syncFailures++)notice(error.message,true);}
-    if(user && token()===syncToken)scheduleSync(syncFailures?Math.min(30000,1000*2**Math.min(syncFailures,5)):1000);
+    if(user && sessionId()===syncSession)scheduleSync(syncFailures?Math.min(30000,1000*2**Math.min(syncFailures,5)):1000);
   }
   // Retained module functions that still call fetch receive the same scoped session.
   window.fetch=(input,options={})=>{
-    const url=new URL(typeof input==='string'?input:input.url,location.href);
-    if(url.origin===new URL(apiBase).origin && token()){
-      const headers=new Headers(options.headers || (input instanceof Request?input.headers:undefined));
-      headers.set('Authorization','Bearer '+token());options={...options,headers,credentials:'omit'};
-    }
-    return nativeFetch(input,options);
+    const url=new URL(typeof input==='string'?input:(input.url || String(input)),location.href);
+    return url.origin===apiOrigin ? sessionFetch(input,options) : nativeFetch(input,options);
   };
   function gateMessage(message,error=false){const e=document.getElementById('fmv-auth-message');if(e){e.textContent=message;e.classList.toggle('error',error);}}
   function hideExistingAccount(){const panel=document.getElementById('fmv-existing-account');if(panel)panel.hidden=true;}
@@ -260,8 +302,8 @@
           const banner=document.getElementById('fmv-driver-submitted');banner.hidden=false;
           document.getElementById('fmv-driver-submitted-message').textContent=result.message;banner.focus();return;
         }
-        if(!result.access_token || !result.user || result.user.portal!==portal())throw new Error('The session could not be confirmed. Start sign-in again.');
-        sessionStorage.setItem(tokenKey(),result.access_token);user=result.user;clearChallenge();unlock();
+        if(!acceptSession(result))throw new Error('The session could not be confirmed. Start sign-in again.');
+        user=result.user;clearChallenge();unlock();
       }else{
         const signup=authMode==='signup';
         if(signup){const message=signupPasswordMessage(document.getElementById('fmv-auth-password').value);if(message)throw new Error(message);}
@@ -273,7 +315,7 @@
     }catch(e){if(generation===authGeneration){if(!challenge && authMode==='signup' && e.status===409)showExistingAccount(e.message);else gateMessage(e.message,true);}}finally{authBusy=false;btn.disabled=false;updateChallengeClock();}
   }
   function lock(){
-    authGeneration++;sessionStorage.removeItem(tokenKey());clearChallenge();user=null;clearTimeout(syncTimer);syncTimer=null;clearTimeout(changeTimer);reads.clear();refreshes.clear();rendered=new WeakMap();revision=null;
+    authGeneration++;sessionStorage.removeItem(sessionKey());memoryId='';memoryBearer='';clearChallenge();user=null;clearTimeout(syncTimer);syncTimer=null;clearTimeout(changeTimer);reads.clear();refreshes.clear();rendered=new WeakMap();revision=null;
     document.documentElement.classList.add('fmv-locked');
     document.getElementById('fmv-auth-gate')?.removeAttribute('hidden');
     if(document.getElementById('fmv-session-bar'))document.getElementById('fmv-session-bar').hidden=true;
@@ -291,7 +333,7 @@
     scheduleSync();
   }
   async function logout(){
-    const revocation=token()?request('/auth/logout',{method:'POST'}):Promise.resolve();lock();
+    const revocation=sessionId()?request('/auth/logout',{method:'POST'}):Promise.resolve();lock();
     try{await revocation;}catch(e){if(![401,403].includes(e.status))gateMessage('Signed out on this device. The server could not confirm revocation of this session; it may remain valid until its normal expiry.',true);}
   }
   async function resendCode(){
@@ -311,18 +353,18 @@
     }finally{resendBusy=false;updateChallengeClock();}
   }
   async function restoreSession(){
-    if(restoreBusy || !token())return;
-    restoreBusy=true;const storedToken=token(),generation=authGeneration;authFieldsVisible(false);
+    if(restoreBusy || !sessionId())return;
+    restoreBusy=true;const storedSession=sessionId(),generation=authGeneration;authFieldsVisible(false);
     document.getElementById('fmv-session-status').textContent='Checking your saved session…';
     document.getElementById('fmv-session-retry').hidden=true;document.getElementById('fmv-session-discard').hidden=true;
     try{
       const result=await request('/auth/session');
-      if(token()!==storedToken || generation!==authGeneration)return;
+      if(sessionId()!==storedSession || generation!==authGeneration)return;
       if(result.user && result.user.portal!==portal()){lock();gateMessage('This saved session belongs to a different portal. Please sign in here.',true);return;}
       if(!result.user)throw new Error('The session response could not be confirmed.');
       user=result.user;unlock();
     }catch(e){
-      if(token()!==storedToken || generation!==authGeneration)return;
+      if(sessionId()!==storedSession || generation!==authGeneration)return;
       if([401,403].includes(e.status)){lock();gateMessage('Your saved session has expired or was revoked. Please sign in again.',true);}
       else{
         document.getElementById('fmv-session-status').textContent='We could not check your saved session. Your sign-in is kept on this device. Retry when the connection returns.';
@@ -332,13 +374,15 @@
   }
   async function guard(action){try{return await action();}catch(e){if(!e.stale)notice(e.message,true);return null;}}
   async function download(path,name){
-    const session=token();if(!session)throw new Error('Sign in to download the private file.');
-    const response=await nativeFetch(apiBase+path,{
-      headers:{Authorization:'Bearer '+session},credentials:'omit',cache:'no-store',
+    const session=sessionId();if(!session)throw new Error('Sign in to download the private file.');
+    const response=await sessionFetch(apiBase+path,{
+      cache:'no-store',
       signal:AbortSignal.timeout(30000)
     });
     if(!response.ok)throw new Error('Download unavailable ('+response.status+'). No data was changed.');
-    const blob=await response.blob(),url=URL.createObjectURL(blob);
+    const blob=await response.blob();
+    if(sessionId()!==session)throw new Error('Session changed.');
+    const url=URL.createObjectURL(blob);
     const disposition=response.headers.get('Content-Disposition') || '';
     const encodedName=disposition.match(/filename\*=UTF-8''([^;]+)/i);
     const link=document.createElement('a');link.href=url;
@@ -361,9 +405,9 @@
   function readFile(inputId){return new Promise((resolve,reject)=>{const file=document.getElementById(inputId)?.files?.[0];if(!file){reject(new Error('Choose a file.'));return;}if(file.size>1500000){reject(new Error('Choose a file smaller than 1.5 MB.'));return;}const reader=new FileReader();reader.onerror=()=>reject(new Error('The file could not be read.'));reader.onload=()=>resolve({filename:file.name,mime_type:file.type || 'text/plain',data_base64:String(reader.result).split(',')[1]});reader.readAsDataURL(file);});}
   async function media(path){
     if(!/^\/order-chat-media\/CHATFILE-[a-f0-9]+$/.test(path))throw new Error('Invalid attachment link.');
-    const session=token();if(!session)throw new Error('Sign in to view the attachment.');
-    const response=await nativeFetch(apiBase+path,{headers:{Authorization:'Bearer '+session},credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(30000)});
-    if(token()!==session)throw new Error('Session changed.');
+    const session=sessionId();if(!session)throw new Error('Sign in to view the attachment.');
+    const response=await sessionFetch(apiBase+path,{cache:'no-store',signal:AbortSignal.timeout(30000)});
+    if(sessionId()!==session)throw new Error('Session changed.');
     if(!response.ok){if(response.status===401)lock();throw new Error('This attachment is unavailable or you no longer have access to the order.');}
     const blob=await response.blob();if(blob.size>1500000 || !/^(image\/jpeg|audio\/(webm|ogg|mp4|mpeg|wav))$/.test(blob.type))throw new Error('Invalid attachment response.');return blob;
   }
@@ -404,7 +448,7 @@
   }
   function empty(message='No records yet.'){return '<p class="fmv-empty">'+escape(message)+'</p>';}
   window.FMV={apiBase,request,snapshot,refresh,escape,val,money,setHTML,notice,guard,download,pay,empty,logout,lock,readFile,media,otpDigits,
-    showAuth:mode=>{lock();setMode(mode || 'signin');},get user(){return user;},get token(){return token();},get portal(){return portal();}};
+    showAuth:mode=>{lock();setMode(mode || 'signin');},get user(){return user;},get sessionId(){return sessionId();},get token(){return sessionId();},get portal(){return portal();}};
   // Preserve the original event attributes in source, but execute only named, trusted
   // application actions through listeners. No eval, Function constructor or inline
   // script permission is needed, including for newly rendered cart/order controls.
@@ -458,8 +502,8 @@
     const gate=document.createElement('section');gate.id='fmv-auth-gate';gate.setAttribute('aria-label','Portal authentication');
     gate.innerHTML=`<div class="fmv-auth-card"><div class="fmv-brand"><img class="fmv-auth-brand-img" src="assets/brand/fmv-logo.webp" width="190" height="190" decoding="async" alt="First Milk Venture official logo"></div><p class="fmv-eyebrow">Kerala, India</p><h1>${escape(portal()[0].toUpperCase()+portal().slice(1))} portal</h1><div id="fmv-session-check" hidden><p id="fmv-session-status" role="status">Checking your saved session…</p><button id="fmv-session-retry" type="button" class="fmv-primary" hidden>Retry session check</button><button id="fmv-session-discard" type="button" class="fmv-text-button" hidden>Sign out on this device</button></div><div id="fmv-auth-fields"><p id="fmv-auth-subtitle" class="fmv-subtitle">Welcome back. Sign in securely to continue.</p><div class="fmv-auth-tabs" role="tablist"><button id="fmv-tab-signin" type="button" role="tab">Sign in</button><button id="fmv-tab-signup" type="button" role="tab">Sign up</button></div><aside id="fmv-admin-invitation-help" class="fmv-invitation-help" hidden><strong>Joining as an administrator?</strong><p>Choose Sign up and enter the private invitation code issued for your email address.</p><button type="button" id="fmv-accept-invitation" class="fmv-text-button">Accept administrator invitation →</button><small>Need the first administrator account? The backend owner creates your invitation with manage.py.</small></aside><section id="fmv-driver-submitted" class="fmv-success-banner" role="status" tabindex="-1" hidden><strong>Application submitted successfully</strong><p id="fmv-driver-submitted-message">You will receive an email notification once your driver profile has been approved.</p></section><form id="fmv-auth-form"><div id="fmv-auth-credentials"><div id="fmv-signup-fields"><label>Full name<input id="fmv-auth-name" maxlength="150" autocomplete="name"></label><label>Indian mobile number<input id="fmv-auth-phone" type="tel" placeholder="+91 9XXXXXXXXX" autocomplete="tel"></label><label>Delivery address / assigned area<textarea id="fmv-auth-address" maxlength="1000" autocomplete="street-address" placeholder="Street, town, Kerala, PIN code"></textarea></label><label id="fmv-admin-invite">Administrator invitation code<input id="fmv-auth-invitation" type="password" maxlength="200" autocomplete="off" placeholder="Paste your private invitation code"><small>Use the exact email address named in the invitation. Codes expire after 24 hours.</small></label></div><label><span id="fmv-auth-identifier-label">Email or mobile</span><input id="fmv-auth-identifier" autocomplete="username" maxlength="254"></label><label>Password<input id="fmv-auth-password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="fmv-password-help" placeholder="Enter password (10+ characters for new accounts)"><small id="fmv-password-help">10–128 characters with uppercase, lowercase, digit and special character.</small></label></div><div id="fmv-auth-otp-fields" hidden><label>Six-digit email code<input id="fmv-auth-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="fmv-resend" type="button" class="fmv-text-button">Resend code</button><button id="fmv-restart" type="button" class="fmv-text-button">Start again</button></div><div id="fmv-existing-account" class="fmv-existing-account" role="alert" hidden><span class="fmv-existing-account-badge">Already registered</span><h2>Welcome back to First Milk</h2><p id="fmv-existing-account-message"></p><button id="fmv-existing-signin" type="button" class="fmv-primary">Sign in instead</button><small>You can reset your password from the sign-in screen.</small></div><p id="fmv-auth-message" role="status"></p><button class="fmv-primary" id="fmv-auth-submit" type="submit">Sign in & send code</button><button id="fmv-password-reset" type="button" class="fmv-text-button">Forgot password?</button></form><p class="fmv-footer-note">Every sign-in requires an email verification code.</p></div></div>`;
     // Choose the loading state before insertion: no sign-in flash while validating.
-    gate.querySelector('#fmv-auth-fields').hidden=!!token();
-    gate.querySelector('#fmv-session-check').hidden=!token();
+    gate.querySelector('#fmv-auth-fields').hidden=!!sessionId();
+    gate.querySelector('#fmv-session-check').hidden=!sessionId();
     document.body.prepend(gate);
     for(const id of ['fmv-auth-password','fmv-auth-invitation'])attachPasswordVisibility(document.getElementById(id));
     const bar=document.createElement('div');bar.id='fmv-session-bar';bar.hidden=true;bar.innerHTML='<span id="fmv-session-name"></span><button type="button" id="fmv-logout">Sign out</button>';document.body.append(bar);
@@ -500,7 +544,7 @@
     document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimeout(syncTimer);else scheduleSync(0);});
     window.addEventListener('online',()=>scheduleSync(0));
     window.addEventListener('offline',()=>{clearTimeout(syncTimer);syncTimer=null;});
-    if(token()){
+    if(sessionId()){
       // Let all controller DOMContentLoaded handlers finish building their views
       // before an authenticated event can start rendering data into them.
       setTimeout(restoreSession,0);
