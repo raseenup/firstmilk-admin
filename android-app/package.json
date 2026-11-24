@@ -5,8 +5,8 @@
   "description": "Private Android build of First Milk Venture admin portal with 360-degree 3D studio",
   "scripts": {
     "stage": "node scripts/stage.mjs",
-    "android:prepare": "npm run stage && npx cap add android",
-    "android:sync": "npm run stage && npx cap sync android"
+    "android:prepare": "npm run stage && npx cap add android && node scripts/android-security.mjs",
+    "android:sync": "npm run stage && npx cap sync android && node scripts/android-security.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.0.0",
