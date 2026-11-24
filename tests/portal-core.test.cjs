@@ -9,9 +9,9 @@ const role=fs.readFileSync(path.join(directory,'index.html'),'utf8').match(/data
 const source=fs.readFileSync(path.join(directory,'portal-core.js'),'utf8');
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 
-async function harness(t){
+async function harness(t,{fresh=false,native=false}={}){
   const dom=new JSDOM('<!doctype html><html class="fmv-locked"><body data-portal="'+role+'"><div id="sink"></div></body></html>',
-    {url:'https://portal.example.test/',runScripts:'outside-only',pretendToBeVisual:true});
+    {url:native?'https://localhost/':'https://'+(role==='driver'?'delivery':role)+'.firstmilkventure.com/',runScripts:'outside-only',pretendToBeVisual:true});
   t.after(()=>dom.window.close());
   const w=dom.window,calls=[],timers=new Map();let timerId=0,online=true;
   const user={id:'qa-user',email:'qa@example.com',full_name:'QA User',portal:role,role:role==='admin'?'super_admin':role,approved:true};
@@ -19,16 +19,18 @@ async function harness(t){
   let responder=async url=>json(url.endsWith('/auth/session')?{user,revision:1}:url.endsWith('/sync')?{revision:1}:{});
   w.Headers=Headers;w.AbortSignal=AbortSignal;w.Blob=Blob;
   w.fetch=(url,options={})=>{calls.push({url,options});return responder(String(url),options);};
-  w.FMV_CONFIG={apiBase:'https://api.example.test'};
-  w.sessionStorage.setItem('fmv_session_'+role,'qa-session');
+  w.FMV_CONFIG={apiBase:'https://backend.firstmilkventure.com'};
+  if(!fresh)w.sessionStorage.setItem('fmv_session_id_'+role,'SES-11111111111111111111');
   w.setTimeout=(fn,delay)=>{timers.set(++timerId,{fn,delay});return timerId;};
   w.clearTimeout=id=>timers.delete(id);
   Object.defineProperty(w.navigator,'onLine',{get:()=>online,configurable:true});
+  w.sessionStorage.setItem('fmv_session_'+role,'retired-test-credential');
+  w.localStorage.setItem(role==='customer'?'customer_token':role+'_key','retired-test-key');
   w.eval(source);
   await new Promise(resolve=>w.document.addEventListener('DOMContentLoaded',resolve,{once:true}));
   async function run(delay){const found=[...timers].findLast(([,item])=>item.delay===delay);assert.ok(found,'Expected timer '+delay);timers.delete(found[0]);await found[1].fn();await settle();}
-  await run(0);assert.equal(w.FMV.user.id,'qa-user');
-  return {w,calls,timers,json,run,setOnline:value=>online=value,setResponder:fn=>responder=fn};
+  if(!fresh){await run(0);assert.equal(w.FMV.user.id,'qa-user');}
+  return {w,calls,timers,json,run,user,setOnline:value=>online=value,setResponder:fn=>responder=fn};
 }
 
 test('unchanged rendering keeps focus, local input and open details; changed data renders',async t=>{
@@ -76,7 +78,7 @@ test('a committed mutation starts a fresh read instead of reusing older in-fligh
 test('responses from a replaced session are rejected and external fetches get no bearer token',async t=>{
   const {w,calls,json,setResponder}=await harness(t);let release;
   setResponder(()=>new Promise(resolve=>release=resolve));const old=w.FMV.request('/items');
-  w.sessionStorage.setItem('fmv_session_'+role,'replacement-session');release(json({private:'old user data'}));
+  w.sessionStorage.setItem('fmv_session_id_'+role,'SES-22222222222222222222');release(json({private:'old user data'}));
   await assert.rejects(old,error=>error.stale===true);
   setResponder(async()=>json({}));await w.fetch('https://outside.example.test/pixel');
   assert.equal(new Headers(calls.at(-1).options.headers).has('Authorization'),false);
@@ -92,4 +94,48 @@ test('polling pauses offline, resumes immediately, backs off on errors and locks
   assert.ok([...timers.values()].some(item=>item.delay===30000));
   setResponder(async()=>json({detail:'Session expired'},401));await run(30000);
   assert.equal(w.FMV.user,null);assert.equal(w.FMV.token,'');assert.ok(w.document.documentElement.classList.contains('fmv-locked'));
+});
+
+test('portal fetches use a scoped cookie, and migration removes old browser credentials',async t=>{
+  const {w,calls}=await harness(t);
+  await w.FMV.request('/auth/session');
+  const {options}=calls.at(-1), headers=new Headers(options.headers);
+  assert.equal(options.credentials,'include');
+  assert.equal(headers.get('X-FMV-Portal'),role);
+  assert.equal(headers.get('X-FMV-Session'),'SES-11111111111111111111');
+  assert.equal(headers.has('Authorization'),false);
+  assert.equal(w.sessionStorage.getItem('fmv_session_'+role),null);
+  assert.equal(w.localStorage.getItem(role==='customer'?'customer_token':role+'_key'),null);
+  await w.fetch('https://outside.example.test/asset');
+  const outside=new Headers(calls.at(-1).options.headers);
+  assert.equal(outside.has('X-FMV-Portal'),false);
+  assert.equal(outside.has('X-FMV-Session'),false);
+  assert.notEqual(calls.at(-1).options.credentials,'include');
+});
+
+for(const native of [false,true])test('OTP sign-in keeps credentials out of storage in '+(native?'standalone':'browser')+' mode',async t=>{
+  const {w,calls,json,setResponder,user}=await harness(t,{fresh:true,native});
+  const id='SES-33333333333333333333',issued='fixture-only-standalone-bearer';
+  setResponder(async url=>{
+    if(url.endsWith('/auth/signin'))return json({challenge_id:'qa-challenge',expires_in:300});
+    if(url.endsWith('/auth/verify-otp'))return json({user,session_id:id,...(native?{access_token:issued}:{})});
+    return json({user});
+  });
+  const element=id=>w.document.getElementById(id);
+  const submit=()=>element('fmv-auth-form').dispatchEvent(new w.Event('submit',{cancelable:true,bubbles:true}));
+  element('fmv-auth-identifier').value=user.email;
+  element('fmv-auth-password').value='ExamplePassForTesting1!';
+  submit();await settle();
+  element('fmv-auth-otp').value='123456';
+  submit();await settle();
+  assert.equal(w.FMV.user?.id,user.id);
+  assert.equal(w.FMV.sessionId,id);
+  await w.FMV.request('/auth/session');
+  const {options}=calls.at(-1),headers=new Headers(options.headers);
+  assert.equal(options.credentials,native?'omit':'include');
+  assert.equal(headers.get('Authorization'),native?'Bearer '+issued:null);
+  assert.equal(headers.get('X-FMV-Session'),native?null:id);
+  for(const storage of [w.localStorage,w.sessionStorage]){
+    for(let i=0;i<storage.length;i++)assert.notEqual(storage.getItem(storage.key(i)),issued);
+  }
 });

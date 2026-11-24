@@ -35,9 +35,35 @@ jobs:
       - name: Stage original portal and generate Android project
         working-directory: android-app
         run: npm run android:prepare
-      - name: Build Android debug APK
+      - name: Build Android debug APK and release variants
         working-directory: android-app/android
-        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+        run: chmod +x gradlew && ./gradlew assembleDebug assembleRelease bundleRelease --no-daemon
+      - name: Check release APK and AAB security settings
+        working-directory: android-app/android
+        run: |
+          curl --fail --silent --show-error --location 'https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar' --output "$RUNNER_TEMP/fmv-bundletool.jar"
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $RUNNER_TEMP/fmv-bundletool.jar" | sha256sum --check --strict
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
+          BUNDLE=app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK" && test -s "$BUNDLE"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print "$APK" > "$RUNNER_TEMP/fmv-release-apk.xml"
+          java -jar "$RUNNER_TEMP/fmv-bundletool.jar" dump manifest --bundle="$BUNDLE" --module=base > "$RUNNER_TEMP/fmv-release-aab.xml"
+          python - "$APK" "$BUNDLE" <<'PY'
+          import os, sys, zipfile
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          ns = '{http://schemas.android.com/apk/res/android}'
+          for kind in ('apk','aab'):
+              app = ET.parse(Path(os.environ['RUNNER_TEMP']) / f'fmv-release-{kind}.xml').getroot().find('application')
+              assert app is not None and app.get(ns+'debuggable', 'false') == 'false', kind
+              assert app.get(ns+'allowBackup') == 'false' and app.get(ns+'usesCleartextTraffic') == 'false', kind
+              assert app.get(ns+'networkSecurityConfig') and app.get(ns+'dataExtractionRules'), kind
+          for artifact in sys.argv[1:]:
+              with zipfile.ZipFile(artifact) as package:
+                  names = [name.lower() for name in package.namelist()]
+                  assert not any(n.endswith(('.jks','.keystore','.p12','.pfx','.pem')) for n in names), artifact
+                  assert any(n.endswith('/public/immersive-3d.js') for n in names), artifact
+          PY
       - name: Require APK to stay under 200 MB
         run: |
           FILE=android-app/android/app/build/outputs/apk/debug/app-debug.apk

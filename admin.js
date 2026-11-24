@@ -91,41 +91,6 @@ document.addEventListener("DOMContentLoaded", () => {
   checkAdminAuth();
 });
 
-function authenticateAdmin() {
-  const key = document.getElementById("staff-secret-key").value.trim();
-  const selectedRoleEl = document.getElementById("staff-role-select");
-  const selectedRole = selectedRoleEl ? selectedRoleEl.value : "super_admin";
-  const errorBox = document.getElementById("staff-error");
-  errorBox.classList.add("hidden");
-
-  if (!key) {
-    errorBox.textContent = "Please enter role or admin access key.";
-    errorBox.classList.remove("hidden");
-    return;
-  }
-
-  // Verify RBAC role & key with backend
-  fetch(`${API_BASE_URL}/admin/rbac/verify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ access_key: key, role: selectedRole })
-  }).then(async res => {
-    if (res.ok) {
-      const data = await res.json();
-      localStorage.setItem("admin_key", key);
-      localStorage.setItem("admin_role", data.role || selectedRole);
-      checkAdminAuth();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      errorBox.textContent = err.detail || "Invalid Access Key for selected RBAC role.";
-      errorBox.classList.remove("hidden");
-    }
-  }).catch(() => {
-    // Shared-key/offline authorization is retired. Use a verified individual session.
-    errorBox.textContent = "The server could not be reached. Retry individual account sign-in with email OTP.";
-    errorBox.classList.remove("hidden");
-  });
-}
 
 function applyRbacPermissions(roleKey) {
   const roleCfg = RBAC_ROLES[roleKey] || {label:"Restricted account",description:"No workspace permissions are assigned to this account.",modules:[],canOverride:false};
@@ -370,36 +335,6 @@ function closeChangeKeyModal() {
   document.getElementById("change-key-modal").classList.add("hidden");
 }
 
-async function submitNewAdminKey() {
-  const currentKey = localStorage.getItem("admin_key");
-  const newKey = document.getElementById("new-admin-key-input").value.trim();
-
-  if (!newKey || newKey.length < 6) {
-    alert("New admin key must be at least 6 characters long.");
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/admin/key`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-key": currentKey
-      },
-      body: JSON.stringify({ new_admin_key: newKey })
-    });
-    if (res.ok) {
-      alert("✅ Admin access key successfully updated! Please log in with your new key.");
-      localStorage.setItem("admin_key", newKey);
-      closeChangeKeyModal();
-    } else {
-      const err = await res.json();
-      alert(`Error: ${err.detail || 'Failed to update admin key'}`);
-    }
-  } catch (err) {
-    alert(`Network error: ${err.message}`);
-  }
-}
 
 function openNewProductModal() {
   document.getElementById("product-modal").classList.remove("hidden");
@@ -785,7 +720,7 @@ async function updateProductStockQty(productId) {
 // Original modules above are retained; these declarations replace legacy actions.
 // ============================================================================
 let fmvAdminProducts = new Map();
-function getAuthHeaders(extra={}) { return {Authorization:'Bearer '+FMV.token,...extra}; }
+function getAuthHeaders(extra={}) { return {...extra}; }
 function authenticateAdmin(){FMV.showAuth('signin');}
 function checkAdminAuth(){
   const u=FMV.user;if(!u || u.portal!=='admin')return;

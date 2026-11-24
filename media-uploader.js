@@ -18,15 +18,15 @@
       throw new Error('Use JPG, PNG, GIF, WebP or MP4 with matching file extension and MIME type.');
   }
   async function request(path,{method='GET',body,token,signal,binary=false}={}){
-    if(!token || token!==FMV.token)throw new Error('Your sign-in session changed. Sign in again to upload.');
-    const headers={'Authorization':'Bearer '+token};
+    if(!token || token!==FMV.sessionId)throw new Error('Your sign-in session changed. Sign in again to upload.');
+    const headers={};
     if(body && !binary)headers['Content-Type']='application/json';
     if(binary)headers['Content-Type']='application/octet-stream';
     let response;
     try{
       response=await fetch(FMV.apiBase+path,{
         method,headers,body:body?(binary?body:JSON.stringify(body)):undefined,
-        cache:'no-store',credentials:'omit',signal:signal || AbortSignal.timeout(60_000)
+        cache:'no-store',signal:signal || AbortSignal.timeout(60_000)
       });
     }catch(error){
       if(error.name==='AbortError')throw error;
@@ -39,12 +39,12 @@
         'Upload could not be completed ('+response.status+').';
       const error=new Error(message);error.status=response.status;throw error;
     }
-    if(token!==FMV.token)throw new Error('Your sign-in session changed during upload.');
+    if(token!==FMV.sessionId)throw new Error('Your sign-in session changed during upload.');
     return data;
   }
   async function upload(file,{onProgress=()=>{},signal}={}){
     validate(file);
-    const token=FMV.token;
+    const token=FMV.sessionId;
     if(!token)throw new Error('Sign in as a content administrator to upload.');
     const start=await request('/admin/content-media/uploads',{
       method:'POST',body:{filename:file.name,size_bytes:file.size},token,signal
@@ -55,7 +55,7 @@
       onProgress(0,file.size);
       while(offset<file.size){
         if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
-        if(token!==FMV.token)throw new Error('Session expired. Sign in again.');
+        if(token!==FMV.sessionId)throw new Error('Session expired. Sign in again.');
         const part=file.slice(offset,Math.min(file.size,offset+SIZE));
         let attempts=0;
         while(true){
